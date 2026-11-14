@@ -54,6 +54,8 @@ const nav = [
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    {/* Every page shows photos from Nohead's image host: connect while the head is read. */}
+    <link rel="preconnect" href="https://images.nohead.io" />
     <meta property="og:site_name" content={siteName} />
     <meta property="og:title" content={title ?? siteName} />
     {description && <meta property="og:description" content={description} />}

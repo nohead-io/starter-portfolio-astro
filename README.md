@@ -12,7 +12,7 @@ The demo is Long Section, an invented architecture studio, with its people, clie
 - **Content collections** loaded from Nohead when the site builds, by Nohead's Astro loader, [`@nohead/astro`](https://github.com/nohead-io/nohead-astro) ([`src/content.config.ts`](src/content.config.ts)), and shaped for the pages in [`src/lib/content.ts`](src/lib/content.ts): every page asks that module for what it shows.
 - **Projects** with a gallery (a field holding a list of images, each with alt text) and a client's quote.
 - **Posts** with one or two authors, a category, tags and a cover; **people** with their own pages; **pages** like About and the Colophon.
-- **Images** in every size and crop the design needs, from one uploaded original.
+- **Images** in every size and crop the design needs, from one uploaded original, straight from Nohead's image CDN through `@nohead/astro`'s image service, so the build never downloads one.
 - **Search** across the journal, opened with ⌘K, Ctrl+K or `/`.
 - **An RSS feed**, a sitemap, link previews (Open Graph), and pages prerendered at build time and prefetched as you point at a link.
 

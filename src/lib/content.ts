@@ -2,16 +2,21 @@
 // Nohead (src/content.config.ts), in the order the pages list them, and the
 // little that several pages share. A page reads an entry's data, follows
 // its references with getEntry(), and renders its body with render().
+import type { ImageMetadata } from "astro"
 import { getCollection, getEntries, type CollectionEntry } from "astro:content"
+import { imageMetadata } from "@nohead/astro"
 
 export type Person = CollectionEntry<"people">
 export type Category = CollectionEntry<"categories">
 export type Post = CollectionEntry<"posts">
 export type Project = CollectionEntry<"projects">
 
-/** An image for <Image>: its URL, its size and its alt text. */
+/**
+ * An image for <Image>: the original's image metadata (its URL on Nohead's
+ * image CDN), its size and its alt text.
+ */
 export interface Photo {
-  src: string
+  src: ImageMetadata
   width: number
   height: number
   alt: string
@@ -19,23 +24,26 @@ export interface Photo {
 
 /**
  * The widths every photo is made in, wherever it shows; each image's
- * `sizes` picks one. One list shared by the cards, lists and pages means a
- * photo shown in several places is made once. 1280 covers a phone at 3x;
- * 1600 is the largest, a little under 2x for a post's cover or a gallery
- * photo on a wide screen, which doesn't show in a photo and is a third
- * lighter.
+ * `sizes` picks one. Every width is a URL of its own, which Nohead's image
+ * CDN makes on the first request and then caches, so one list shared by
+ * the cards, lists and pages means a photo shown in several places is made
+ * once, and most requests are cache hits. 1280 covers a phone at 3x; 1600
+ * is the largest, a little under 2x for a post's cover or a gallery photo
+ * on a wide screen, which doesn't show in a photo and is a third lighter.
  */
 export const WIDTHS = [400, 640, 960, 1280, 1600]
 
-type Asset = { image_url?: string; width?: number; height?: number; alt?: string }
+type Asset = { content_type: string; image_url?: string; width?: number; height?: number; alt?: string }
 
 /**
  * An embedded image asset as a Photo; one not processed yet is none. Its size
- * is the original's.
+ * is the original's, which Astro then knows: no `srcset` width is larger than
+ * it, and the image service never makes one larger than the largest of an
+ * image's `widths`.
  */
 export function photoOf(asset?: Asset): Photo | undefined {
-  if (!asset?.image_url || !asset.width || !asset.height) return undefined
-  return { src: asset.image_url, width: asset.width, height: asset.height, alt: asset.alt ?? "" }
+  const src = imageMetadata(asset)
+  return src && { src, width: src.width, height: src.height, alt: asset?.alt ?? "" }
 }
 
 /** The photos among embedded assets, in order. */
