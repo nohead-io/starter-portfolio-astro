@@ -8,6 +8,7 @@ The demo is Long Section, an invented architecture studio, with its people, clie
 
 ## What it shows
 
+- **The content model as code**, in [`nohead.schema.yaml`](nohead.schema.yaml).
 - **Projects** with a gallery (a field holding a list of images, each with alt text) and a client's quote.
 - **Posts** with one or two authors, a category, tags and a cover; **people** with their own pages; **pages** like About and the Colophon.
 - **Images** in every size and crop the design needs, from one uploaded original.
@@ -31,9 +32,27 @@ This repository's history builds the site one step at a time. It starts with a p
 
 Every step builds the same site; `git log --reverse` lists them.
 
+## Keys and tokens
+
+Sign up at [nohead.io](https://nohead.io) and create a project, then make these in its web app. You can change a key's scopes later, on the **API keys** page, but not **Published records only**, which is set when the key is created:
+
+- **A setup key**, from the **API keys** page, for you: it pushes the schema. Give it `schema:read` and `schema:write`, with **Published records only** off. It can change your project, so keep it out of the site and the repository.
+
+## Push the schema
+
+Work in a clone of this repository, with Node 22.23.4 or newer and [pnpm](https://pnpm.io). [`nohead.schema.yaml`](nohead.schema.yaml) is the content model: people, categories, posts, projects and pages. Push it with the [Nohead CLI](https://github.com/nohead-io/nohead-cli), a dev dependency here (anywhere else, `npx nohead`). The CLI reads the [setup key](#keys-and-tokens) from `NOHEAD_API_KEY` in your terminal:
+
+```bash
+pnpm install
+export NOHEAD_API_KEY=nohead_sk_...
+pnpm nohead schema push --yes   # creates the collections and fields
+```
+
+The collections start empty. Add your own people, categories, posts, projects and pages in Nohead and publish them. The header and footer link to two pages by slug, `about` and `colophon`.
+
 ## Development
 
-It needs Node 22.23.4 or newer and [pnpm](https://pnpm.io).
+Work in the same clone ([above](#push-the-schema)):
 
 ```bash
 pnpm install

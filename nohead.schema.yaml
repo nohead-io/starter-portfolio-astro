@@ -1,0 +1,191 @@
+# Nohead schema: nohead schema diff | push. Collections are keyed by slug,
+# fields by API key (renaming a key is a new field). Field order is kept.
+collections:
+  people:
+    description: The studio's people, and its dog. Each has a page and writes posts.
+    fields:
+      name:
+        type: text
+        required: true
+        max_length: 120
+      slug:
+        type: text
+        required: true
+        format: slug
+        description: The address of their page, /team/<slug>.
+      role:
+        type: text
+        required: true
+        max_length: 120
+      studio:
+        type: text
+        required: true
+        max_length: 60
+      bio:
+        type: long_text
+        required: true
+        max_length: 600
+      portrait:
+        type: asset
+        required: true
+        description: A square photo; it is shown in black and white.
+        accepted_types:
+          - image/*
+      website:
+        type: text
+        format: url
+      order:
+        type: integer
+        required: true
+        sortable: true
+        description: Their place on the Team page, from 1.
+  posts:
+    description: The journal.
+    public_search: true
+    fields:
+      title:
+        type: text
+        required: true
+        max_length: 120
+      slug:
+        type: text
+        required: true
+        format: slug
+        description: The address of the post, /posts/<slug>.
+      date:
+        type: date
+        required: true
+        sortable: true
+      category:
+        type: relation
+        required: true
+        filterable: true
+        collection: categories
+      authors:
+        type: relation
+        required: true
+        multiple: true
+        description: One, or two for a post written together ("we").
+        collection: people
+      summary:
+        type: long_text
+        required: true
+        max_length: 400
+        description: Shown under the title, in lists and in link previews.
+      cover:
+        type: asset
+        description: Its alt text describes the photograph as it is.
+        accepted_types:
+          - image/*
+      body:
+        type: rich_text
+        required: true
+      tags:
+        type: text
+        multiple: true
+        filterable: true
+  projects:
+    description: The work, in the order of the homepage.
+    fields:
+      title:
+        type: text
+        required: true
+        max_length: 120
+      slug:
+        type: text
+        required: true
+        format: slug
+        description: The address of the project, /work/<slug>.
+      client:
+        type: text
+        required: true
+        max_length: 120
+      year:
+        type: integer
+        required: true
+        max: 2100
+        min: 1900
+      location:
+        type: text
+        required: true
+        max_length: 120
+        description: Where the building is, as a visitor would say it.
+      order:
+        type: integer
+        required: true
+        sortable: true
+        description: Its place on the homepage, from 1.
+      services:
+        type: text
+        required: true
+        multiple: true
+      summary:
+        type: long_text
+        required: true
+        max_length: 400
+      gallery:
+        type: asset
+        multiple: true
+        description: The photos, in order; each one's alt text describes it.
+        accepted_types:
+          - image/*
+      case_study:
+        type: rich_text
+        required: true
+      testimonial_quote:
+        type: long_text
+        name: Client's quote
+        max_length: 600
+      testimonial_name:
+        type: text
+        name: Quoted by
+        max_length: 120
+      testimonial_role:
+        type: text
+        name: Their role
+        max_length: 120
+  pages:
+    description: Standalone pages, like About and the Colophon.
+    fields:
+      title:
+        type: text
+        required: true
+        max_length: 120
+      slug:
+        type: text
+        required: true
+        format: slug
+        description: The address of the page, /<slug>.
+      description:
+        type: long_text
+        required: true
+        max_length: 400
+        description: The introduction under the title, and the link preview's text.
+      photo:
+        type: asset
+        accepted_types:
+          - image/*
+      body:
+        type: rich_text
+        required: true
+  categories:
+    description: The journal's categories, each with its own page.
+    fields:
+      name:
+        type: text
+        required: true
+        max_length: 60
+      slug:
+        type: text
+        required: true
+        format: slug
+        description: The address of its page, /categories/<slug>.
+      description:
+        type: long_text
+        max_length: 300
+        description: What its posts are about, under the name on its page.
+      order:
+        type: integer
+        required: true
+        sortable: true
+        description: Its place in lists, from 1.
