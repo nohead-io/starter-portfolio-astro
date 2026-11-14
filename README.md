@@ -36,11 +36,11 @@ Every step builds the same site; `git log --reverse` lists them.
 
 Sign up at [nohead.io](https://nohead.io) and create a project, then make these in its web app. You can change a key's scopes later, on the **API keys** page, but not **Published records only**, which is set when the key is created:
 
-- **A setup key**, from the **API keys** page, for you: it pushes the schema. Give it `schema:read` and `schema:write`, with **Published records only** off. It can change your project, so keep it out of the site and the repository.
+- **A setup key**, from the **API keys** page, for you: it pushes the schema and seeds the demo content. Give it `schema:read`, `schema:write`, `records:read`, `records:write` and `assets:write`, with **Published records only** off. It can change your project, so keep it out of the site and the repository.
 
 ## Push the schema
 
-Work in a clone of this repository, with Node 22.23.4 or newer and [pnpm](https://pnpm.io). [`nohead.schema.yaml`](nohead.schema.yaml) is the content model: people, categories, posts, projects and pages. Push it with the [Nohead CLI](https://github.com/nohead-io/nohead-cli), a dev dependency here (anywhere else, `npx nohead`). The CLI reads the [setup key](#keys-and-tokens) from `NOHEAD_API_KEY` in your terminal:
+Work in a clone of this repository, with Node 22.23.4 or newer and [pnpm](https://pnpm.io). [`nohead.schema.yaml`](nohead.schema.yaml) is the content model: people, categories, posts, projects and pages. Push it with the [Nohead CLI](https://github.com/nohead-io/nohead-cli), a dev dependency here (anywhere else, `npx nohead`). The CLI and the seed read the [setup key](#keys-and-tokens) from `NOHEAD_API_KEY` in your terminal:
 
 ```bash
 pnpm install
@@ -49,6 +49,16 @@ pnpm nohead schema push --yes   # creates the collections and fields
 ```
 
 The collections start empty. Add your own people, categories, posts, projects and pages in Nohead and publish them. The header and footer link to two pages by slug, `about` and `colophon`.
+
+## Add the demo content (optional)
+
+To start from the demo instead (the Long Section studio's people, posts, projects and photographs), run the seed once with the setup key:
+
+```bash
+pnpm seed   # uploads seed/ and publishes it
+```
+
+The seed creates what the project doesn't have yet, matched by slug, and never changes what is already there, so it is safe to run again. Edit or delete the demo's records in Nohead as you replace them with your own.
 
 ## Development
 
