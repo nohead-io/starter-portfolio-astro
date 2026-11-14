@@ -1,6 +1,6 @@
 ---
 import "../styles/global.css"
-import { leadPhoto, type Photo } from "../lib/content"
+import { leadPhoto, search, type Photo } from "../lib/content"
 import { Font, getImage } from "astro:assets"
 import Promo from "../components/Promo.astro"
 import Search from "../components/Search.astro"
@@ -94,7 +94,7 @@ const nav = [
               {label}
             </a>
           ))}
-          <Search />
+          {search && <Search {...search} />}
           <a class="icon-link" href="/rss.xml" aria-label="RSS feed">
             <svg viewBox="0 0 20 20" aria-hidden="true">
               <path d="M4 4a12 12 0 0 1 12 12" />

@@ -13,7 +13,7 @@ The demo is Long Section, an invented architecture studio, with its people, clie
 - **Projects** with a gallery (a field holding a list of images, each with alt text) and a client's quote.
 - **Posts** with one or two authors, a category, tags and a cover; **people** with their own pages; **pages** like About and the Colophon.
 - **Images** in every size and crop the design needs, from one uploaded original, straight from Nohead's image CDN through `@nohead/astro`'s image service, so the build never downloads one.
-- **Search** across the journal, opened with ⌘K, Ctrl+K or `/`.
+- **Search** across the journal as you type, straight against Nohead's public search, opened with ⌘K, Ctrl+K or `/`. Each result shows its cover and authors from the search hit itself, as the posts' search options in [`nohead.schema.yaml`](nohead.schema.yaml) set.
 - **An RSS feed**, a sitemap, link previews (Open Graph), and pages prerendered at build time and prefetched as you point at a link.
 
 ## Step by step
@@ -36,7 +36,8 @@ Every step builds the same site; `git log --reverse` lists them.
 Sign up at [nohead.io](https://nohead.io) and create a project, then make these in its web app. You can change a key's scopes later, on the **API keys** page, but not **Published records only**, which is set when the key is created:
 
 - **A setup key**, from the **API keys** page, for you: it pushes the schema and seeds the demo content. Give it `schema:read`, `schema:write`, `records:read`, `records:write` and `assets:write`, with **Published records only** off. It can change your project, so keep it out of the site and the repository.
-- **A site key**, from the **API keys** page, for builds: set it as `NOHEAD_API_KEY` wherever the site builds. Turn **Published records only** on and give it `records:read` and `assets:read`. The site asks for published records only either way, so drafts never reach a build.
+- **A site key**, from the **API keys** page, for builds: set it as `NOHEAD_API_KEY` wherever the site builds. Turn **Published records only** on and give it `records:read` and `assets:read`, plus `schema:read` for search: the build reads the posts' search index name. The site asks for published records only either way, so drafts never reach a build.
+- **A search token**, from the **Search tokens** page, optional, as `PUBLIC_NOHEAD_SEARCH_TOKEN`: it finds only published posts, and is public by design, since it goes in the page. Without it the site has no search, and its pages load no search code.
 
 ## Push the schema
 
@@ -62,10 +63,10 @@ The seed creates what the project doesn't have yet, matched by slug, and never c
 
 ## Development
 
-In the same clone ([above](#push-the-schema)), put the [site key](#keys-and-tokens) in `.env`:
+In the same clone ([above](#push-the-schema)), put the [site key](#keys-and-tokens) in `.env`, plus the search token if you want search:
 
 ```bash
-echo "NOHEAD_API_KEY=nohead_pk_..." > .env
+printf "NOHEAD_API_KEY=nohead_pk_...\n" > .env   # and PUBLIC_NOHEAD_SEARCH_TOKEN=... for search
 pnpm install
 pnpm dev        # http://localhost:4322
 pnpm build      # the static site, in dist/

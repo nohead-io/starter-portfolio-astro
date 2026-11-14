@@ -57,6 +57,7 @@ export default defineConfig({
     schema: {
       // Optional, so `astro check` runs without it; a build without it has no content.
       NOHEAD_API_KEY: envField.string({ context: "server", access: "secret", optional: true }),
+      PUBLIC_NOHEAD_SEARCH_TOKEN: envField.string({ context: "server", access: "public", optional: true }),
     },
   },
 })

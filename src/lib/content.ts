@@ -4,7 +4,9 @@
 // its references with getEntry(), and renders its body with render().
 import type { ImageMetadata } from "astro"
 import { getCollection, getEntries, type CollectionEntry } from "astro:content"
+import { NOHEAD_API_KEY, PUBLIC_NOHEAD_SEARCH_TOKEN } from "astro:env/server"
 import { imageMetadata } from "@nohead/astro"
+import { Nohead } from "@nohead/sdk"
 
 export type Person = CollectionEntry<"people">
 export type Category = CollectionEntry<"categories">
@@ -81,6 +83,27 @@ export const authorsOf = async (post: Post) =>
 /** Whether the person wrote, or co-wrote, the post. */
 export const byAuthor = (post: Post, person: Person) =>
   post.data.authors.some((author) => author.id === person.id)
+
+/**
+ * Public search of the posts: the site's search token and the posts' index.
+ * The token is made in Nohead's web app (Search tokens) and is public: it
+ * sits in the page. Without one, the site has no search box.
+ */
+export const search = PUBLIC_NOHEAD_SEARCH_TOKEN
+  ? {
+      token: PUBLIC_NOHEAD_SEARCH_TOKEN,
+      index: await new Nohead({ apiKey: NOHEAD_API_KEY }).collections.searchIndex.get("posts").then(
+        (searchIndex) => searchIndex.index,
+        (error) => {
+          throw new Error(
+            "Search needs the posts' search index: give NOHEAD_API_KEY the schema:read scope, or unset PUBLIC_NOHEAD_SEARCH_TOKEN to build without search.",
+            { cause: error }
+          )
+        }
+      ),
+    }
+  : undefined
+if (!search) console.warn("PUBLIC_NOHEAD_SEARCH_TOKEN is not set: the site is built without search.")
 
 export const formatDate = (date: Date) =>
   date.toLocaleDateString("en-IE", {

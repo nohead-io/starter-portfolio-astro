@@ -67,6 +67,11 @@ collections:
         multiple: true
         description: One, or two for a post written together ("we").
         collection: people
+        searchable: true
+        expanded:
+          - name
+        searched:
+          - name
       summary:
         type: long_text
         required: true
@@ -80,6 +85,7 @@ collections:
       body:
         type: rich_text
         required: true
+        included: false
       tags:
         type: text
         multiple: true

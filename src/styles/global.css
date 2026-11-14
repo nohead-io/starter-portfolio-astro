@@ -190,8 +190,7 @@ a.category:hover {
    meets the paper. The filter never changes: animating one makes Safari
    redraw the image every frame. A linked photograph fades a little on hover
    or focus instead. */
-main img,
-.results img {
+main img {
   filter: grayscale(1) contrast(1.04);
   outline: 1px solid var(--ring);
   outline-offset: -1px;

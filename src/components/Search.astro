@@ -1,9 +1,33 @@
 ---
 // Search: a button in the header that opens a modal search box (also on
-// ⌘K / Ctrl+K and "/"), listing posts as links with their cover, a snippet
-// and the matched words marked. Matching runs on /search.json, loaded the
-// first time the box opens; with Nohead the box asks the project's search
-// instead (a public search token, which also returns highlighted snippets).
+// ⌘K / Ctrl+K and "/"), listing posts as links with their date, a snippet
+// and the matched words marked. Each search goes to Nohead's public search
+// with the site's search token, through the SDK's searchPublic, and a hit
+// carries all a result shows: the posts' search settings include their
+// cover's URL and their authors' names (`expanded`), and leave out the body,
+// which searches still match (`included: false`). Searches match authors'
+// names too (`searched`), marked in the byline. The latest posts, shown
+// before anything is typed, are written into the page when the site is
+// built, so the box opens with them at once and searches only once someone
+// types. The layout renders it only when the site has a search token
+// (content.ts), so without one no page loads its script.
+import { Image } from "astro:assets"
+import { authorsOf, formatDate, photoOf, posts } from "../lib/content"
+
+interface Props {
+  token: string
+  index: string
+}
+
+const { token, index } = Astro.props
+/** As fresh as the page: the site is rebuilt when a post is published. */
+const latest = await Promise.all(
+  posts.slice(0, 5).map(async (post) => ({
+    post,
+    cover: photoOf(post.data.cover),
+    byline: (await authorsOf(post)).map((author) => author.data.name).join(" and "),
+  }))
+)
 ---
 
 <button type="button" class="search-open" aria-haspopup="dialog" aria-controls="search-dialog">
@@ -14,7 +38,13 @@
   <span class="visually-hidden">Search</span>
 </button>
 
-<dialog id="search-dialog" class="search-dialog" aria-label="Search the journal">
+<dialog
+  id="search-dialog"
+  class="search-dialog"
+  aria-label="Search the journal"
+  data-search-token={token}
+  data-search-index={index}
+>
   <div class="field">
     <svg viewBox="0 0 20 20" aria-hidden="true">
       <circle cx="8.5" cy="8.5" r="5.5"></circle>
@@ -44,18 +74,52 @@
     <p class="empty" hidden></p>
   </div>
   <p class="visually-hidden" aria-live="polite" data-status></p>
+  <template id="search-latest">
+    {latest.map(({ post, cover, byline }, i) => (
+      <a href={`/posts/${post.data.slug}`} id={`search-option-${i}`} role="option" tabindex="-1">
+        {cover ? (
+          <Image src={cover.src} alt="" width={72} height={54} densities={[1, 2]} fit="cover" class="thumb" />
+        ) : (
+          <span class="thumb" />
+        )}
+        <span class="text">
+          <span class="meta">{[formatDate(post.data.date), byline].filter(Boolean).join(" · ")}</span>
+          <span class="title">{post.data.title}</span>
+          <span class="summary">{post.data.summary}</span>
+        </span>
+        <kbd class="enter" aria-hidden="true">
+          ↵
+        </kbd>
+      </a>
+    ))}
+  </template>
 </dialog>
 
 <script>
-  interface Entry {
-    slug: string
+  import { imageUrl } from "@nohead/sdk/images"
+  import {
+    SEARCH_URL,
+    searchPublic,
+    snippet,
+    type ExpandedAsset,
+    type ExpandedRecord,
+    type SearchHit,
+    type Segment,
+  } from "@nohead/sdk/search"
+
+  /** A post as search returns it: dates as Unix seconds, relations as IDs. */
+  interface Post {
     title: string
+    slug: string
     summary: string
-    category: { name: string; slug: string } | null
-    meta: string
-    thumb: string | null
-    text: string
+    date: number
   }
+  /** What the posts' search settings include of their cover and authors. */
+  interface Expanded {
+    cover: ExpandedAsset
+    authors: ExpandedRecord<{ name: string }>[]
+  }
+  type Hit = SearchHit<Post, Expanded>
 
   setUp(document.querySelector<HTMLDialogElement>("#search-dialog")!)
 
@@ -66,106 +130,112 @@
     const heading = dialog.querySelector<HTMLElement>(".heading")!
     const empty = dialog.querySelector<HTMLElement>(".empty")!
     const status = dialog.querySelector<HTMLElement>("[data-status]")!
-    let index: Entry[] = []
-    let loaded = false
-    let failed = false
-    let loading: Promise<void> | undefined
-    /** Loads the index once, on first open; a failed load is tried again next time. */
-    function load() {
-      loading ??= fetch("/search.json")
-        .then((response) => {
-          if (!response.ok) throw new Error(`search.json: ${response.status}`)
-          return response.json()
-        })
-        .then((entries: Entry[]) => {
-          index = entries
-          loaded = true
-          failed = false
-        })
-        .catch(() => {
-          failed = true
-          loading = undefined
-        })
-      return loading
-    }
+    const token = dialog.dataset.searchToken!
+    const index = dialog.dataset.searchIndex!
+    const latest = dialog.querySelector<HTMLTemplateElement>("#search-latest")!
 
     /** Shorter queries show the latest posts instead. */
     const MIN_QUERY = 2
-    /** Wait for a pause in typing; each search will be a request to Nohead. */
+    /** Wait for a pause in typing: each search is a request. */
     const DEBOUNCE_MS = 150
 
-    let terms: string[] = []
     let active = 0
     let timer: number | undefined
+    let failed = false
+    let controller: AbortController | undefined
+    /** The search under way, which keys wait for. */
+    let pending: Promise<void> | undefined
 
-    function search(query: string): Entry[] {
-      terms = query.toLowerCase().split(/\s+/).filter(Boolean)
-      if (terms.length === 0) return index.slice(0, 5)
-      return index
-        .filter((post) => terms.every((term) => post.text.includes(term)))
-        .map((post) => {
-          const title = post.title.toLowerCase()
-          return { post, score: terms.filter((term) => title.includes(term)).length }
-        })
-        .sort((a, b) => b.score - a.score)
-        .map(({ post }) => post)
-    }
-
-    /** Text with the search terms wrapped in <mark>, built as nodes. */
-    function marked(text: string): Node[] {
-      if (terms.length === 0) return [document.createTextNode(text)]
-      const pattern = new RegExp(
-        `(${terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`,
-        "gi"
-      )
-      return text.split(pattern).map((part, i) => {
-        if (i % 2 === 0) return document.createTextNode(part)
-        const mark = document.createElement("mark")
-        mark.textContent = part
-        return mark
+    /** The best matches, marked. */
+    function search(q: string, signal: AbortSignal) {
+      return searchPublic<Post, Expanded>({
+        token,
+        index,
+        q,
+        limit: 20,
+        highlight: ["title", "summary", "authors.name"],
+        signal,
       })
     }
 
-    /** The summary from a little before its first match, so the match shows. */
-    function snippet(summary: string): string {
-      const lower = summary.toLowerCase()
-      const at = Math.min(...terms.map((term) => lower.indexOf(term)).filter((i) => i >= 0))
-      if (!Number.isFinite(at) || at < 40) return summary
-      const start = summary.lastIndexOf(" ", at - 24)
-      return `…${summary.slice(start + 1)}`
+    /** The latest posts, from the page: what an empty box shows, at once. */
+    function showLatest() {
+      list.replaceChildren(latest.content.cloneNode(true))
+      list.querySelectorAll<HTMLElement>("[role=option]").forEach((el, i) => {
+        el.addEventListener("mousemove", (event) => hover(event, i))
+      })
+      failed = false
+      heading.textContent = "Latest"
+      heading.hidden = list.children.length === 0
+      empty.hidden = true
+      status.textContent = ""
+      select(0)
     }
 
-    function option(post: Entry, i: number): HTMLAnchorElement {
+    /** Highlighted text as text and <mark> elements, built as nodes. */
+    const marked = (segments: Segment[]): Node[] =>
+      segments.map(({ text, match }) =>
+        match
+          ? Object.assign(document.createElement("mark"), { textContent: text })
+          : document.createTextNode(text)
+      )
+
+    const formatDate = (seconds: number) =>
+      new Date(seconds * 1000).toLocaleDateString("en-IE", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+      })
+
+    function option(hit: Hit, i: number): HTMLAnchorElement {
       const link = document.createElement("a")
-      link.href = `/posts/${post.slug}`
+      link.href = `/posts/${hit.data.slug}`
       link.id = `search-option-${i}`
       link.setAttribute("role", "option")
       link.tabIndex = -1
 
-      const thumb = document.createElement("span")
-      thumb.className = `thumb ${post.category?.slug ?? ""}`
-      if (post.thumb) {
-        const img = document.createElement("img")
-        img.src = post.thumb
-        img.alt = ""
-        img.width = 72
-        img.height = 54
-        thumb.append(img)
-      } else {
-        thumb.textContent = post.category?.name.charAt(0) ?? ""
-      }
+      // The cover, cropped to the thumbnail's shape, at 1x and 2x.
+      const cover = hit.expanded.cover?.image_url
+      let thumb: HTMLElement
+      if (cover) {
+        const crop = (scale: number) =>
+          imageUrl(cover, {
+            width: 72 * scale,
+            height: 54 * scale,
+            fit: "cover",
+            quality: 70,
+            format: "webp",
+          })
+        thumb = Object.assign(document.createElement("img"), {
+          src: crop(1),
+          srcset: `${crop(2)} 2x`,
+          alt: "",
+          width: 72,
+          height: 54,
+          decoding: "async",
+        })
+      } else thumb = document.createElement("span")
+      thumb.className = "thumb"
 
       const text = document.createElement("span")
       text.className = "text"
       const meta = document.createElement("span")
       meta.className = "meta"
-      meta.textContent = post.meta
+      // The date, then the authors, a name marked where the search matched it.
+      meta.append(formatDate(hit.data.date))
+      for (const [i, author] of (hit.expanded.authors ?? []).entries()) {
+        meta.append(i === 0 ? " · " : " and ")
+        meta.append(...marked(author.highlights?.name ?? [{ text: author.data.name ?? "", match: false }]))
+      }
       const title = document.createElement("span")
       title.className = "title"
-      title.append(...marked(post.title))
+      title.append(...marked(hit.highlights.title ?? [{ text: hit.data.title, match: false }]))
       const summary = document.createElement("span")
       summary.className = "summary"
-      summary.append(...marked(snippet(post.summary)))
+      // A match's summary from a little before the match, so the match shows.
+      const matched = hit.highlights.summary
+      summary.append(...(matched ? marked(snippet(matched)) : [hit.data.summary]))
       text.append(meta, title, summary)
 
       const enter = document.createElement("kbd")
@@ -201,31 +271,47 @@
       if (scroll) options[active]!.scrollIntoView({ block: "nearest" })
     }
 
+    /** Searches for what is typed now and shows it; a newer search cancels this one. */
     function render() {
+      pending = show()
+      return pending
+    }
+
+    async function show() {
       clearTimeout(timer)
       timer = undefined
       const typed = input.value.trim()
       const query = typed.length >= MIN_QUERY ? typed : ""
-      const results = search(query)
-      list.replaceChildren(...results.map(option))
-      heading.textContent = query ? `${results.length} ${results.length === 1 ? "post" : "posts"}` : "Latest"
-      heading.hidden = results.length === 0
-      // While the index loads, show nothing rather than "nothing matches".
-      empty.hidden = results.length > 0 || (!loaded && !failed)
-      if (failed) empty.replaceChildren("Search didn't load. Check your connection and open it again.")
+      controller?.abort()
+      if (!query) return showLatest()
+      controller = new AbortController()
+      const { signal } = controller
+      let hits: Hit[] = []
+      let total = 0
+      try {
+        ;({ hits, total } = await search(query, signal))
+        failed = false
+      } catch {
+        if (signal.aborted) return
+        failed = true
+      }
+      list.replaceChildren(...hits.map(option))
+      const count = `${total} ${total === 1 ? "post" : "posts"}`
+      heading.textContent = count
+      heading.hidden = hits.length === 0
+      empty.hidden = hits.length > 0
+      if (failed) empty.replaceChildren("Search didn't load. Check your connection and try again.")
       else
         empty.replaceChildren(
           "Nothing matches “",
           Object.assign(document.createElement("strong"), { textContent: query }),
-          "”. Try a building, a person or a place."
+          "”. Try a building or a place."
         )
       status.textContent = failed
         ? "Search didn't load."
-        : query
-          ? results.length === 0
-            ? `No posts match ${query}.`
-            : `${results.length} ${results.length === 1 ? "post" : "posts"} found.`
-          : ""
+        : hits.length === 0
+          ? `No posts match ${query}.`
+          : `${count} found.`
       select(0)
     }
 
@@ -248,13 +334,32 @@
     function open() {
       if (dialog.open) return
       input.value = ""
-      render()
+      warm()
       pin()
       if (window.visualViewport) fit()
       dialog.showModal()
       input.focus()
-      // The first time, the results fill in once the index arrives.
-      if (!loaded) load().then(render)
+      render()
+    }
+
+    /**
+     * Opens the connection to the search host as the box opens, while the
+     * latest posts show and before the first word is typed, so the first
+     * search doesn't wait for it. Not in the page's head: an unused
+     * connection closes after about ten seconds. `crossorigin`, as the
+     * search's fetch carries no cookies, or the browser won't reuse it.
+     */
+    let warmed = false
+    function warm() {
+      if (warmed) return
+      warmed = true
+      document.head.append(
+        Object.assign(document.createElement("link"), {
+          rel: "preconnect",
+          href: SEARCH_URL,
+          crossOrigin: "",
+        })
+      )
     }
 
     opener.addEventListener("click", open)
@@ -264,30 +369,27 @@
       timer = window.setTimeout(render, DEBOUNCE_MS)
     })
 
-    input.addEventListener("keydown", (event) => {
+    input.addEventListener("keydown", async (event) => {
+      // Enter also confirms a word in an input method editor: leave it be.
+      if (event.isComposing || !["ArrowDown", "ArrowUp", "Enter"].includes(event.key)) return
+      event.preventDefault()
       // On a touch screen the keyboard's Search key only puts the keyboard
       // away, so the results show in full; a tap opens one.
-      if (
-        event.key === "Enter" &&
-        !event.isComposing &&
-        matchMedia("(hover: none) and (pointer: coarse)").matches
-      ) {
-        event.preventDefault()
+      if (event.key === "Enter" && matchMedia("(hover: none) and (pointer: coarse)").matches) {
         input.blur()
         return
       }
-      // Keys act on the results for what is typed now, not before the pause.
-      if (timer !== undefined && ["ArrowDown", "ArrowUp", "Enter"].includes(event.key)) render()
-      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        event.preventDefault()
-        select(active + (event.key === "ArrowDown" ? 1 : -1))
-      } else if (event.key === "Enter") {
+      // Keys act on the results for what is typed now: before the pause ends
+      // and while its search is still on its way.
+      if (timer !== undefined) await render()
+      else await pending
+      if (event.key === "Enter") {
         const chosen = list.querySelector<HTMLAnchorElement>(`#search-option-${active}`)
-        if (chosen) {
-          event.preventDefault()
-          if (event.metaKey || event.ctrlKey) window.open(chosen.href, "_blank")
-          else chosen.click()
-        }
+        if (!chosen) return
+        if (event.metaKey || event.ctrlKey) window.open(chosen.href, "_blank")
+        else chosen.click()
+      } else {
+        select(active + (event.key === "ArrowDown" ? 1 : -1))
       }
     })
 
@@ -504,7 +606,7 @@
   }
   .results :global([role="option"]) {
     display: grid;
-    grid-template-columns: 72px 1fr auto;
+    grid-template-columns: auto 1fr auto;
     gap: 16px;
     align-items: center;
     padding: 10px 12px;
@@ -515,36 +617,14 @@
   .results :global([aria-selected="true"]) {
     background: var(--selected);
   }
+  /* The cover, or its place where a post has none, so titles line up. */
   .results :global(.thumb) {
-    display: grid;
-    place-items: center;
+    display: block;
     width: 72px;
     height: 54px;
-    border-radius: 6px;
-    overflow: hidden;
-    color: #ffffff;
-    font-family: var(--display);
-    font-size: 1.4rem;
-    font-weight: 600;
-    background: var(--guide);
-  }
-  .results :global(.thumb.work) {
-    background: var(--work);
-  }
-  .results :global(.thumb.design) {
-    background: var(--design);
-  }
-  .results :global(.thumb.development) {
-    background: var(--development);
-  }
-  .results :global(.thumb.studio) {
-    background: var(--studio);
-  }
-  .results :global(.thumb img) {
-    width: 100%;
-    height: 100%;
+    border-radius: 4px;
     object-fit: cover;
-    border-radius: inherit;
+    background: var(--guide);
   }
   .results :global(.text) {
     display: grid;
@@ -572,13 +652,16 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  /* A matched word: a soft ink marker, and full ink in the muted summary.
+     The padding reaches past the word without moving it. */
   .results :global(mark) {
-    background: none;
-    color: inherit;
-    text-decoration: underline;
-    text-decoration-color: var(--accent);
-    text-decoration-thickness: 2px;
-    text-underline-offset: 0.18em;
+    padding: 0.04em 0.12em;
+    margin: 0 -0.12em;
+    border-radius: 0.25em;
+    background: color-mix(in oklab, var(--ink) 11%, transparent);
+    color: var(--ink);
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
   }
   .results :global(.enter) {
     visibility: hidden;
@@ -610,12 +693,8 @@
       max-height: min(600px, calc(var(--visible-height, 100dvh) - 32px));
     }
     .results :global([role="option"]) {
-      grid-template-columns: 56px 1fr;
+      grid-template-columns: auto 1fr;
       gap: 12px;
-    }
-    .results :global(.thumb) {
-      width: 56px;
-      height: 42px;
     }
     .results :global(.enter) {
       display: none;
