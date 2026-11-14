@@ -1,0 +1,13 @@
+// Cloudflare Workers: the built site (dist/) served as static assets, with
+// no Worker code. Workers Builds runs `pnpm build`, then `wrangler deploy`.
+{
+  "name": "starter-portfolio-astro",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist",
+    // posts/<slug>.html is served at /posts/<slug>, the addresses the links use.
+    "html_handling": "auto-trailing-slash",
+    // A wrong address gets the site's own page (src/pages/404.astro).
+    "not_found_handling": "404-page",
+  },
+}

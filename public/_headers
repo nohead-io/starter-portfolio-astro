@@ -1,0 +1,5 @@
+# Cloudflare: the built CSS, scripts and fonts in /_astro/ have a hash in
+# their names, so browsers keep them for a year without asking again. Pages
+# keep Cloudflare's default and are checked on every visit.
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable

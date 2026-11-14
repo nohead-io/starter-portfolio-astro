@@ -2,7 +2,7 @@
 
 ![The starter's homepage: “We design buildings, old and new.” above two black-and-white photos of buildings, The Accordion and Støb](.github/preview.webp)
 
-A portfolio with a journal, built with [Astro](https://astro.build) for content kept in [Nohead](https://nohead.io): a studio's projects, each with a photo gallery, a case study and a client's quote, and a journal of posts with authors, categories, search and an RSS feed. Copy it, connect it to your own Nohead project, and replace the story with your own.
+A portfolio with a journal, built with [Astro](https://astro.build) on [Nohead](https://nohead.io). It's a showcase of what Nohead does in a real site and a reference for building one with it: deploy it as it is, with the demo content or your own, or clone it and modify it into your own site.
 
 The demo is Long Section, an invented architecture studio, with its people, clients, projects and journal.
 
@@ -61,6 +61,26 @@ pnpm seed   # uploads seed/ and publishes it
 
 The seed creates what the project doesn't have yet, matched by slug, and never changes what is already there, so it is safe to run again. Edit or delete the demo's records in Nohead as you replace them with your own.
 
+## Deploy
+
+Push the schema first ([above](#push-the-schema)). Builds read these variables:
+
+- `NOHEAD_API_KEY`: the [site key](#keys-and-tokens).
+- `SITE_URL`: the site's address, which the feed, canonical links and link previews are built from.
+- `PUBLIC_NOHEAD_SEARCH_TOKEN`, for search: the [search token](#keys-and-tokens).
+
+### Deploy to Cloudflare
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/nohead-io/starter-portfolio-astro)
+
+Cloudflare copies the repository and creates the Worker ([`wrangler.jsonc`](wrangler.jsonc)), but its button can't ask for build variables, so the first build fails. Add the variables above in the Worker's **Settings → Build → Build variables and secrets** (`SITE_URL` is its `workers.dev` address or your domain), and retry the build.
+
+### Deploy to Vercel
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fnohead-io%2Fstarter-portfolio-astro&env=NOHEAD_API_KEY&envDescription=A%20published-only%20Nohead%20API%20key%20with%20records%3Aread%20and%20assets%3Aread%2C%20plus%20schema%3Aread%20for%20search&envLink=https%3A%2F%2Fgithub.com%2Fnohead-io%2Fstarter-portfolio-astro%23keys-and-tokens)
+
+Vercel asks for the key when you deploy, and `SITE_URL` defaults to the project's production address. For search, add `PUBLIC_NOHEAD_SEARCH_TOKEN` in the project's **Settings → Environment Variables** and redeploy.
+
 ## Development
 
 In the same clone ([above](#push-the-schema)), put the [site key](#keys-and-tokens) in `.env`, plus the search token if you want search:
@@ -80,7 +100,7 @@ Content loads when the dev server starts; to see edits made in Nohead, press `s`
 
 The entries' types come from [`nohead.schema.yaml`](nohead.schema.yaml), not from the project, so `pnpm check` runs without a key, in CI too. After changing fields in Nohead's web app, pull the file and commit it (`pnpm nohead schema pull`, then restart `pnpm dev`); `pnpm nohead schema diff --exit-code` fails while the file and the project differ.
 
-Set `SITE_URL` to the deployed address when you build for production (`SITE_URL=https://example.com pnpm build`): the feed, canonical links and link-preview images are absolute URLs built from it. Without it the build warns and uses `http://localhost:4322`.
+Without `SITE_URL` the build uses `http://localhost:4322` and warns; set it when you build for production (`SITE_URL=https://example.com pnpm build`).
 
 ## Credits
 

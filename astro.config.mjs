@@ -2,9 +2,11 @@ import { defineConfig, envField, fontProviders } from "astro/config"
 import sitemap from "@astrojs/sitemap"
 
 // The deployed address: feeds, canonical links and social images are
-// absolute URLs built from it. Set SITE_URL when you deploy.
-const site = process.env.SITE_URL || "http://localhost:4322"
-if (!process.env.SITE_URL && process.argv.includes("build")) {
+// absolute URLs built from it. Set SITE_URL when you deploy; on Vercel it
+// defaults to the project's production address.
+const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL
+const site = process.env.SITE_URL || (vercel ? `https://${vercel}` : "http://localhost:4322")
+if (site === "http://localhost:4322" && process.argv.includes("build")) {
   console.warn(
     "SITE_URL is not set: the feed, canonical links and social images will point at http://localhost:4322."
   )
