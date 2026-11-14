@@ -14,7 +14,7 @@ The demo is Long Section, an invented architecture studio, with its people, clie
 - **Posts** with one or two authors, a category, tags and a cover; **people** with their own pages; **pages** like About and the Colophon.
 - **Images** in every size and crop the design needs, from one uploaded original, straight from Nohead's image CDN through `@nohead/astro`'s image service, so the build never downloads one.
 - **Search** across the journal as you type, straight against Nohead's public search, opened with ⌘K, Ctrl+K or `/`. Each result shows its cover and authors from the search hit itself, as the posts' search options in [`nohead.schema.yaml`](nohead.schema.yaml) set.
-- **An RSS feed**, a sitemap, link previews (Open Graph), and pages prerendered at build time and prefetched as you point at a link.
+- **Rebuilds on publish**, an RSS feed, a sitemap, link previews (Open Graph), and pages prerendered at build time and prefetched as you point at a link.
 
 ## Step by step
 
@@ -35,7 +35,7 @@ Every step builds the same site; `git log --reverse` lists them.
 
 Sign up at [nohead.io](https://nohead.io) and create a project, then make these in its web app. You can change a key's scopes later, on the **API keys** page, but not **Published records only**, which is set when the key is created:
 
-- **A setup key**, from the **API keys** page, for you: it pushes the schema and seeds the demo content. Give it `schema:read`, `schema:write`, `records:read`, `records:write` and `assets:write`, with **Published records only** off. It can change your project, so keep it out of the site and the repository.
+- **A setup key**, from the **API keys** page, for you: it pushes the schema, seeds the demo content and creates the rebuild webhook. Give it `schema:read`, `schema:write`, `records:read`, `records:write`, `assets:write` and `webhooks:write`, with **Published records only** off. It can change your project, so keep it out of the site and the repository.
 - **A site key**, from the **API keys** page, for builds: set it as `NOHEAD_API_KEY` wherever the site builds. Turn **Published records only** on and give it `records:read` and `assets:read`, plus `schema:read` for search: the build reads the posts' search index name. The site asks for published records only either way, so drafts never reach a build.
 - **A search token**, from the **Search tokens** page, optional, as `PUBLIC_NOHEAD_SEARCH_TOKEN`: it finds only published posts, and is public by design, since it goes in the page. Without it the site has no search, and its pages load no search code.
 
@@ -80,6 +80,24 @@ Cloudflare copies the repository and creates the Worker ([`wrangler.jsonc`](wran
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fnohead-io%2Fstarter-portfolio-astro&env=NOHEAD_API_KEY&envDescription=A%20published-only%20Nohead%20API%20key%20with%20records%3Aread%20and%20assets%3Aread%2C%20plus%20schema%3Aread%20for%20search&envLink=https%3A%2F%2Fgithub.com%2Fnohead-io%2Fstarter-portfolio-astro%23keys-and-tokens)
 
 Vercel asks for the key when you deploy, and `SITE_URL` defaults to the project's production address. For search, add `PUBLIC_NOHEAD_SEARCH_TOKEN` in the project's **Settings → Environment Variables** and redeploy.
+
+### Rebuild when you publish
+
+Pages are built ahead of time, so a change published in Nohead reaches the site with the next build. Create a deploy hook for the site:
+
+- **Cloudflare**: the Worker's **Settings → Build → Deploy Hooks**.
+- **Vercel**: the project's **Settings → Git → Deploy Hooks**.
+
+Then add a webhook in Nohead that calls the hook whenever published content changes:
+
+- **In the web app**: **Webhooks → New webhook**, with the hook's URL, **Published content only** on and the record and asset events.
+- **With the CLI** and the setup key:
+
+  ```bash
+  pnpm nohead webhooks create --url "$DEPLOY_HOOK_URL" --events "record.*,asset.*" --published-only --description "Rebuild the site"
+  ```
+
+With **Published content only**, edits to drafts and unpublished records don't start a build. The deploy hook's URL is its own secret: anyone with it can start a build, so keep it out of the repository.
 
 ## Development
 
