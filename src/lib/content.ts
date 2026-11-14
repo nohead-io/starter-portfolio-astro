@@ -1,8 +1,7 @@
-// The site's content: the content collections loaded from seed/
-// (src/content.config.ts), in the order the pages list them, and the little
-// that several pages share. A page reads an entry's data, follows
+// The site's content: the content collections Nohead's Astro loader fills from
+// Nohead (src/content.config.ts), in the order the pages list them, and the
+// little that several pages share. A page reads an entry's data, follows
 // its references with getEntry(), and renders its body with render().
-import type { ImageMetadata } from "astro"
 import { getCollection, getEntries, type CollectionEntry } from "astro:content"
 
 export type Person = CollectionEntry<"people">
@@ -12,7 +11,7 @@ export type Project = CollectionEntry<"projects">
 
 /** An image for <Image>: its URL, its size and its alt text. */
 export interface Photo {
-  src: ImageMetadata
+  src: string
   width: number
   height: number
   alt: string
@@ -28,12 +27,15 @@ export interface Photo {
  */
 export const WIDTHS = [400, 640, 960, 1280, 1600]
 
-type Asset = { image: ImageMetadata; alt?: string }
+type Asset = { image_url?: string; width?: number; height?: number; alt?: string }
 
-/** An image from the seed files as a Photo. Its size is the original's. */
+/**
+ * An embedded image asset as a Photo; one not processed yet is none. Its size
+ * is the original's.
+ */
 export function photoOf(asset?: Asset): Photo | undefined {
-  if (!asset) return undefined
-  return { src: asset.image, width: asset.image.width, height: asset.image.height, alt: asset.alt ?? "" }
+  if (!asset?.image_url || !asset.width || !asset.height) return undefined
+  return { src: asset.image_url, width: asset.width, height: asset.height, alt: asset.alt ?? "" }
 }
 
 /** The photos among embedded assets, in order. */

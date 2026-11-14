@@ -9,13 +9,12 @@ The demo is Long Section, an invented architecture studio, with its people, clie
 ## What it shows
 
 - **The content model as code**, in [`nohead.schema.yaml`](nohead.schema.yaml).
+- **Content collections** loaded from Nohead when the site builds, by Nohead's Astro loader, [`@nohead/astro`](https://github.com/nohead-io/nohead-astro) ([`src/content.config.ts`](src/content.config.ts)), and shaped for the pages in [`src/lib/content.ts`](src/lib/content.ts): every page asks that module for what it shows.
 - **Projects** with a gallery (a field holding a list of images, each with alt text) and a client's quote.
 - **Posts** with one or two authors, a category, tags and a cover; **people** with their own pages; **pages** like About and the Colophon.
 - **Images** in every size and crop the design needs, from one uploaded original.
 - **Search** across the journal, opened with ⌘K, Ctrl+K or `/`.
 - **An RSS feed**, a sitemap, link previews (Open Graph), and pages prerendered at build time and prefetched as you point at a link.
-
-At this step the site reads its content from [`seed/`](seed), as Astro content collections ([`src/content.config.ts`](src/content.config.ts)).
 
 ## Step by step
 
@@ -37,6 +36,7 @@ Every step builds the same site; `git log --reverse` lists them.
 Sign up at [nohead.io](https://nohead.io) and create a project, then make these in its web app. You can change a key's scopes later, on the **API keys** page, but not **Published records only**, which is set when the key is created:
 
 - **A setup key**, from the **API keys** page, for you: it pushes the schema and seeds the demo content. Give it `schema:read`, `schema:write`, `records:read`, `records:write` and `assets:write`, with **Published records only** off. It can change your project, so keep it out of the site and the repository.
+- **A site key**, from the **API keys** page, for builds: set it as `NOHEAD_API_KEY` wherever the site builds. Turn **Published records only** on and give it `records:read` and `assets:read`. The site asks for published records only either way, so drafts never reach a build.
 
 ## Push the schema
 
@@ -48,7 +48,7 @@ export NOHEAD_API_KEY=nohead_sk_...
 pnpm nohead schema push --yes   # creates the collections and fields
 ```
 
-The collections start empty. Add your own people, categories, posts, projects and pages in Nohead and publish them. The header and footer link to two pages by slug, `about` and `colophon`.
+The collections start empty. Add your own people, categories, posts, projects and pages in Nohead and publish them, and the site shows them from its next build. The header and footer link to two pages by slug, `about` and `colophon`.
 
 ## Add the demo content (optional)
 
@@ -62,17 +62,22 @@ The seed creates what the project doesn't have yet, matched by slug, and never c
 
 ## Development
 
-Work in the same clone ([above](#push-the-schema)):
+In the same clone ([above](#push-the-schema)), put the [site key](#keys-and-tokens) in `.env`:
 
 ```bash
+echo "NOHEAD_API_KEY=nohead_pk_..." > .env
 pnpm install
 pnpm dev        # http://localhost:4322
 pnpm build      # the static site, in dist/
-pnpm check      # types, in .astro files too
+pnpm check      # types, in .astro files too (no key needed)
 pnpm format     # Prettier, .astro files included
 ```
 
 The same checks and a build run on every push and pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+
+Content loads when the dev server starts; to see edits made in Nohead, press `s` and Enter in its terminal.
+
+The entries' types come from [`nohead.schema.yaml`](nohead.schema.yaml), not from the project, so `pnpm check` runs without a key, in CI too. After changing fields in Nohead's web app, pull the file and commit it (`pnpm nohead schema pull`, then restart `pnpm dev`); `pnpm nohead schema diff --exit-code` fails while the file and the project differ.
 
 Set `SITE_URL` to the deployed address when you build for production (`SITE_URL=https://example.com pnpm build`): the feed, canonical links and link-preview images are absolute URLs built from it. Without it the build warns and uses `http://localhost:4322`.
 

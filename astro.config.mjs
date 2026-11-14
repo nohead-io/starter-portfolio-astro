@@ -1,4 +1,4 @@
-import { defineConfig, fontProviders } from "astro/config"
+import { defineConfig, envField, fontProviders } from "astro/config"
 import sitemap from "@astrojs/sitemap"
 
 // The deployed address: feeds, canonical links and social images are
@@ -17,6 +17,11 @@ export default defineConfig({
   // posts/<slug>.html rather than posts/<slug>/index.html, so pages are
   // served at the same slashless addresses the links use.
   build: { format: "file" },
+  // Nohead's images are downloaded when the site builds and resized by
+  // Astro's own image service (sharp), like images in the repository.
+  image: {
+    remotePatterns: [{ protocol: "https", hostname: "images.nohead.io" }],
+  },
   integrations: [sitemap()],
   // Quotes and dashes as the content has them, as Nohead keeps rich text.
   markdown: { smartypants: false },
@@ -46,4 +51,11 @@ export default defineConfig({
       fallbacks: ["system-ui", "sans-serif"],
     },
   ],
+  // What the site reads from the environment (or .env), checked when it builds.
+  env: {
+    schema: {
+      // Optional, so `astro check` runs without it; a build without it has no content.
+      NOHEAD_API_KEY: envField.string({ context: "server", access: "secret", optional: true }),
+    },
+  },
 })

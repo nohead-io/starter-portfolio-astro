@@ -14,6 +14,9 @@ importers:
       '@astrojs/sitemap':
         specifier: 3.7.4
         version: 3.7.4
+      '@nohead/astro':
+        specifier: 0.3.0
+        version: 0.3.0(astro@7.4.8(@types/node@26.6.6)(yaml@2.9.1))
       '@nohead/sdk':
         specifier: 0.21.0
         version: 0.21.0
@@ -472,6 +475,12 @@ packages:
 
   '@nodable/entities@3.1.0':
     resolution: {integrity: sha512-LsS/DjHr+uDM647Gru/cA8+J3a3HfhttwCKLyuoyN7yXTFCxKBtSgMQBvrW9yNPa2/zDRUNuGPaH5QUFoa4arQ==}
+
+  '@nohead/astro@0.3.0':
+    resolution: {integrity: sha512-vBfSRtHbQQcN9qIlmOkGoLPJ3h90SxT5Fmlt8MQzXJhlBis0tYoycsswr6tyH5n2zWWJIkLVNFjK1n1eWaJPiQ==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      astro: '>=5.9.0'
 
   '@nohead/cli@0.9.0':
     resolution: {integrity: sha512-elJZS/leyhG5yeX7+OEN1ITGdzKYdO1VqxU6bPjZgr7Ac4wMWwmpeuCg3fCStyCnE0+fKBhldO1hKIQc04qmzw==}
@@ -2194,6 +2203,12 @@ snapshots:
     optional: true
 
   '@nodable/entities@3.1.0': {}
+
+  '@nohead/astro@0.3.0(astro@7.4.8(@types/node@26.6.6)(yaml@2.9.1))':
+    dependencies:
+      '@nohead/sdk': 0.21.0
+      astro: 7.4.8(@types/node@26.6.6)(yaml@2.9.1)
+      yaml: 2.9.1
 
   '@nohead/cli@0.9.0':
     dependencies:
