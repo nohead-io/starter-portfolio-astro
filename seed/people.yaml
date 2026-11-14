@@ -1,0 +1,58 @@
+# The Long Section team, in the order of the Team page. Everyone here is
+# invented.
+- slug: helena
+  name: Helena Marsh
+  role: Founder, Director
+  studio: Dublin
+  bio: "Started Long Section in 2019 after ten years at a practice of two hundred, drawing shopping centres and one hospital. Draws the long section first, every time."
+  portrait:
+    image: images/authors/helena.jpg
+- slug: callum
+  name: Callum Reid
+  role: Conservation Architect
+  studio: Dublin
+  bio: "Reads a building before anyone draws on it, and keeps a record of every change. Writes the schedules of what stays."
+  portrait:
+    image: images/authors/callum.jpg
+- slug: leela
+  name: Leela Menon
+  role: Technical Director
+  studio: Copenhagen
+  bio: "Concrete, water, heat and the details where they meet. Wrote the mixes for the Accordion's forty-one repair samples, and signs off every handover."
+  portrait:
+    image: images/authors/leela.jpg
+- slug: elias
+  name: Elias Brandt
+  role: Design Director
+  studio: Copenhagen
+  bio: "Draws buildings and builds their models. Found the joinery, and cuts balsa there on Fridays with Birthe."
+  portrait:
+    image: images/authors/elias.jpg
+- slug: aoife
+  name: Aoife Brennan
+  role: Landscape Architect
+  studio: Dublin
+  bio: "Watches a place before anyone draws it, one observation per index card, then draws the ground around the building. Asks what a space is for, and runs our workshops."
+  portrait:
+    image: images/authors/aoife.jpg
+- slug: jens
+  name: Jens Mikkelsen
+  role: Architect
+  studio: Copenhagen
+  bio: "Joined in July 2026 and spent his first month under a bus station's roof. Draws doors, windows and the details people touch."
+  portrait:
+    image: images/authors/jens.jpg
+- slug: marta
+  name: Marta Oliveira
+  role: Photographer
+  studio: Dublin
+  bio: "Photographs the studio's buildings, before, during and after, and argues for better alt text."
+  portrait:
+    image: images/authors/marta.jpg
+- slug: noir
+  name: Noir
+  role: Studio Dog
+  studio: Copenhagen
+  bio: "A black pug, called Noir because she is the blackest thing in the studio, the band saw included. Sleeps under the workbench, inspects every delivery, and supervises workshops from her blanket."
+  portrait:
+    image: images/authors/noir.jpg

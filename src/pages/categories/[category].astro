@@ -1,0 +1,54 @@
+---
+import Base from "../../layouts/Base.astro"
+import PostRow from "../../components/PostRow.astro"
+import { categories, posts, type Category } from "../../lib/content"
+
+export function getStaticPaths() {
+  return categories.map((category) => ({
+    params: { category: category.data.slug },
+    props: { category },
+  }))
+}
+
+const { category } = Astro.props as { category: Category }
+const { name, description } = category.data
+const theirs = posts.filter((post) => post.data.category.id === category.id)
+---
+
+<Base title={name} description={description}>
+  <section class="grid intro">
+    <h1 class="display">{name}</h1>
+    {description && <p>{description}</p>}
+  </section>
+  {theirs.map((post) => (
+    <PostRow post={post} />
+  ))}
+</Base>
+
+<style>
+  .intro {
+    padding: 96px 0 24px;
+    /* The description's last line sits on the title's baseline. */
+    align-items: last baseline;
+  }
+  h1 {
+    grid-column: 1 / 3;
+    margin: 0;
+    font-size: clamp(2.75rem, 7vw, 5rem);
+    font-weight: 500;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+  }
+  .intro p {
+    grid-column: 3 / 5;
+    margin: 0;
+    font-size: 1.12rem;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+  @media (max-width: 860px) {
+    .intro p {
+      margin-top: 20px;
+    }
+  }
+</style>

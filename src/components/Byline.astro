@@ -1,0 +1,50 @@
+---
+import { Image } from "astro:assets"
+import { photoOf, type Person } from "../lib/content"
+
+interface Props {
+  author: Person
+}
+
+const { author } = Astro.props
+const { name, role, slug } = author.data
+const portrait = photoOf(author.data.portrait)
+---
+
+<a class="byline" href={`/team/${slug}`}>
+  {portrait && <Image src={portrait.src} alt="" width={96} height={96} fit="cover" class="portrait" />}
+  <span>
+    <span class="name">{name}</span>
+    <span class="role">{role}</span>
+  </span>
+</a>
+
+<style>
+  .byline {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    text-decoration: none;
+  }
+  .portrait {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex: none;
+  }
+  .name {
+    display: block;
+    font-weight: 600;
+    font-size: 1.05rem;
+    line-height: 1.4;
+  }
+  .role {
+    display: block;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .byline:hover .name {
+    color: var(--accent);
+  }
+</style>

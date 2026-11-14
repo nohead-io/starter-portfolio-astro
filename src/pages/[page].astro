@@ -1,0 +1,116 @@
+---
+// Standalone pages (About, Colophon).
+import { Image } from "astro:assets"
+import Base from "../layouts/Base.astro"
+import Team from "../components/Team.astro"
+import { getCollection, render, type CollectionEntry } from "astro:content"
+import { photoOf, WIDTHS } from "../lib/content"
+
+export async function getStaticPaths() {
+  const pages = await getCollection("pages")
+  return pages.map((page) => ({ params: { page: page.data.slug }, props: { page } }))
+}
+
+const { page } = Astro.props as { page: CollectionEntry<"pages"> }
+const { title, description, slug } = page.data
+const photo = photoOf(page.data.photo)
+const { Content } = await render(page)
+// A title longer than "About" is set smaller, to fit the side column.
+const long = title.length > 6
+---
+
+<Base title={title} description={description} image={photo}>
+  <div class="grid body">
+    <h1 class:list={["display", { long }]}>{title}</h1>
+    <p class="lede text">{description}</p>
+    {photo && (
+      <div class="photo">
+        <Image
+          src={photo.src}
+          width={photo.width}
+          height={photo.height}
+          alt={photo.alt}
+          widths={WIDTHS}
+          sizes="(max-width: 860px) calc(100vw - 32px), calc((min(100vw, 1160px) - 32px) * 3 / 4)"
+          loading="eager"
+          fetchpriority="high"
+        />
+      </div>
+    )}
+    <div class="prose text">
+      <Content />
+    </div>
+  </div>
+  {slug === "about" && <Team />}
+</Base>
+
+<style>
+  /* The title in the first column, beside the text, like a post's byline. */
+  .body {
+    padding-top: 96px;
+  }
+  h1 {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+    margin: 0;
+    font-size: clamp(2.75rem, 7vw, 5rem);
+    font-weight: 500;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+  }
+  h1.long {
+    font-size: clamp(2.75rem, 4.4vw, 3.5rem);
+  }
+  .lede,
+  .prose {
+    grid-column: 2 / 5;
+    max-width: 36em;
+  }
+  .lede {
+    grid-row: 1;
+  }
+  @media (max-width: 860px) {
+    h1,
+    .lede {
+      grid-row: auto;
+    }
+    h1 {
+      margin-bottom: 24px;
+    }
+  }
+  .lede {
+    margin: 0 0 24px;
+    font-size: 1.45rem;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  /* Guide to guide across the text's columns, like a post's cover. */
+  .photo {
+    grid-column: 2 / 5;
+    padding: 0;
+    margin: 24px 0 48px;
+  }
+  .photo :global(img) {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 10px;
+  }
+  .prose {
+    font-size: 1.24rem;
+    line-height: 1.65;
+  }
+  .prose :global(h2) {
+    margin: 2em 0 0.6em;
+    font-family: var(--display);
+    font-size: 1.35rem;
+  }
+  .prose :global(a) {
+    color: var(--accent);
+  }
+  /* A bullet is a quiet grey dot; a numbered list keeps its numbers in ink. */
+  .prose :global(ul > li::marker) {
+    color: var(--faint);
+  }
+</style>

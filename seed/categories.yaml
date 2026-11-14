@@ -1,0 +1,14 @@
+# The journal's categories, in the order they are listed. Posts name theirs
+# by slug in their front matter.
+- name: Buildings
+  slug: buildings
+  description: "The buildings we design and repair, from the first visit to the night the doors open, and what happened after."
+- name: Drawing
+  slug: drawing
+  description: "Sections, models, schedules and photographs: how we draw a building before anyone builds it."
+- name: Materials
+  slug: materials
+  description: "Concrete, timber, water and weather: what buildings are made of, and how we repair them."
+- name: Studio
+  slug: studio
+  description: "The people, the two studios, the joinery, and the dog."

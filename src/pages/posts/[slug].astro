@@ -1,0 +1,222 @@
+---
+import Base from "../../layouts/Base.astro"
+import Byline from "../../components/Byline.astro"
+import Cover from "../../components/Cover.astro"
+import JournalStrip from "../../components/JournalStrip.astro"
+import { getEntry, render } from "astro:content"
+import { authorsOf, categoryHref, formatDate, photoOf, posts, type Post } from "../../lib/content"
+
+export function getStaticPaths() {
+  return posts.map((post) => ({ params: { slug: post.data.slug }, props: { post } }))
+}
+
+const { post } = Astro.props as { post: Post }
+const { title, summary, date } = post.data
+// An unpublished category isn't in its collection, so it's left out.
+const category = await getEntry(post.data.category)
+const authors = await authorsOf(post)
+const { Content } = await render(post)
+// Four more to read: the same category first, then the latest.
+const others = posts.filter((p) => p.id !== post.id)
+const same = (p: Post) => category !== undefined && p.data.category.id === category.id
+const more = [...others.filter(same), ...others.filter((p) => !same(p))].slice(0, 4)
+---
+
+<Base title={title} description={summary} image={photoOf(post.data.cover)}>
+  <article>
+    <header class="grid head">
+      <p class="tick cat">
+        {category && (
+          <a class="category" href={categoryHref(category)}>
+            {category.data.name}
+          </a>
+        )}
+      </p>
+      <h1 class="display">{title}</h1>
+      <p class="tick date">
+        <time datetime={date.toISOString()}>{formatDate(date)}</time>
+      </p>
+    </header>
+    <div class="grid body">
+      <aside class="bylines">
+        {authors.map((author) => (
+          <Byline author={author} />
+        ))}
+      </aside>
+      <div class="prose text">
+        <p class="lede">{summary}</p>
+        <div class="cover">
+          <Cover post={post} size="large" />
+        </div>
+        <Content />
+      </div>
+    </div>
+  </article>
+  <JournalStrip
+    posts={more}
+    heading="More from the journal"
+    more={{ href: "/journal", label: "All posts" }}
+  />
+</Base>
+
+<style>
+  .head {
+    padding: 96px 0 0;
+  }
+  .head > * {
+    grid-column: 2 / 5;
+  }
+  .cat {
+    margin: 0 0 12px;
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(2.2rem, 5vw, 3.9rem);
+    font-weight: 600;
+    line-height: 1.04;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+  .date {
+    margin: 40px 0 0;
+  }
+  .body {
+    padding-top: 48px;
+  }
+  aside {
+    grid-column: 1;
+    padding-top: 8px;
+    display: grid;
+    gap: 24px;
+    align-content: start;
+  }
+  .prose {
+    grid-column: 2 / 5;
+    font-size: 1.24rem;
+    line-height: 1.65;
+  }
+  .lede {
+    margin-top: 0;
+    font-size: 1.45rem;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  /* Out of the column's padding, so the cover meets the guides. */
+  .cover {
+    margin: 48px calc(-1 * var(--gutter));
+  }
+  .prose :global(p),
+  .prose :global(ul),
+  .prose :global(ol),
+  .prose :global(h2),
+  .prose :global(blockquote) {
+    max-width: 36em;
+  }
+  .prose :global(h2) {
+    margin: 2.2em 0 0.6em;
+    font-family: var(--display);
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+  .prose :global(a) {
+    color: var(--accent);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
+  }
+  .prose :global(li) {
+    margin: 0.35em 0;
+  }
+  .prose :global(li::marker) {
+    color: var(--accent);
+  }
+  /* A bullet is a quiet grey dot; a numbered list keeps its numbers in ink. */
+  .prose :global(ul > li::marker) {
+    color: var(--faint);
+  }
+  /* Quotes are set like a project's testimonial: large display type, with
+     the opening quote mark hung outside the text. */
+  .prose :global(blockquote) {
+    margin: 1.4em 0;
+    max-width: 22em;
+    font-family: var(--display);
+    font-feature-settings: "liga" 1;
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    text-wrap: pretty;
+  }
+  .prose :global(blockquote p) {
+    margin: 0;
+    max-width: none;
+  }
+  .prose :global(blockquote p:first-child) {
+    text-indent: -0.4em;
+  }
+  .prose :global(blockquote p:first-child::before) {
+    content: "“";
+  }
+  .prose :global(blockquote p:last-child::after) {
+    content: "”";
+  }
+  .prose :global(code) {
+    font-size: 0.85em;
+    font-family: ui-monospace, monospace;
+    padding: 0.1em 0.3em;
+    border-radius: 4px;
+    background: var(--card);
+    border: 1px solid var(--guide);
+  }
+  .prose :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 1rem;
+  }
+  .prose :global(th),
+  .prose :global(td) {
+    text-align: left;
+    padding: 10px 12px 10px 0;
+    border-bottom: 1px solid var(--guide);
+    vertical-align: top;
+  }
+  .prose :global(th) {
+    font-variant-caps: all-small-caps;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  @media (max-width: 860px) {
+    /* Two halves, so the date hangs on the middle guide beside the
+       category, above the title. */
+    .head {
+      grid-template-columns: 1fr 1fr;
+    }
+    .head > .cat {
+      grid-column: 1 !important;
+      grid-row: 1;
+      align-self: baseline;
+    }
+    .head > .date {
+      grid-column: 2 !important;
+      grid-row: 1;
+      margin: 0 0 12px;
+      align-self: baseline;
+    }
+    .prose {
+      font-size: 1.15rem;
+    }
+    .bylines {
+      display: grid;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+  }
+  /* Two bylines side by side on a tablet, one on each half. */
+  @media (min-width: 501px) and (max-width: 860px) {
+    .bylines {
+      grid-template-columns: 1fr 1fr;
+      column-gap: calc(2 * var(--gutter));
+    }
+  }
+</style>

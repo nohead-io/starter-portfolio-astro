@@ -1,0 +1,113 @@
+---
+// A post's cover: its photo when it has one, otherwise a typographic cover in
+// the category's colour, with the title set large and a folio line like a
+// printed specimen.
+import { Image } from "astro:assets"
+import { getEntry } from "astro:content"
+import { formatDate, photoOf, WIDTHS, type Post } from "../lib/content"
+
+interface Props {
+  post: Post
+  size?: "large" | "medium"
+  /** Decorative where the title is already beside it (lists). */
+  decorative?: boolean
+}
+
+const { post, size = "medium", decorative = false } = Astro.props
+const cover = photoOf(post.data.cover)
+// A typographic cover names the post's category (unless it isn't published).
+const category = cover ? undefined : await getEntry(post.data.category)
+// The width each size is shown at: a post's cover spans three columns, a
+// list's two, both guide to guide (and the page's width less its margins
+// on phones).
+const sizes =
+  size === "large"
+    ? "(max-width: 860px) calc(100vw - 32px), calc((min(100vw, 1160px) - 32px) * 3 / 4)"
+    : "(max-width: 860px) calc(100vw - 32px), calc((min(100vw, 1160px) - 32px) / 2)"
+---
+
+{cover ? (
+  <Image
+    src={cover.src}
+    width={cover.width}
+    height={cover.height}
+    alt={decorative ? "" : cover.alt}
+    widths={WIDTHS}
+    sizes={sizes}
+    class:list={["cover", "photo", size]}
+    loading={size === "large" ? "eager" : "lazy"}
+    fetchpriority={size === "large" ? "high" : undefined}
+  />
+) : (
+  <div class:list={["cover", "type", category?.data.slug, size]} aria-hidden="true">
+    <span class="folio">
+      {category ? `${category.data.name} · ` : ""}
+      {formatDate(post.data.date)}
+    </span>
+    <span class="title display">{post.data.title}</span>
+    <span class="mark display">Long Section</span>
+  </div>
+)}
+
+<style>
+  .cover {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 11;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .photo {
+    height: auto;
+    object-fit: cover;
+    background: var(--guide);
+  }
+  .type {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 9% 9% 8%;
+    color: #ffffff;
+    background-image:
+      radial-gradient(120% 90% at 100% 0%, rgb(255 255 255 / 0.14), transparent 60%),
+      radial-gradient(90% 80% at 0% 100%, rgb(0 0 0 / 0.22), transparent 70%);
+  }
+  .buildings {
+    background-color: var(--buildings);
+  }
+  .drawing {
+    background-color: var(--drawing);
+  }
+  .materials {
+    background-color: var(--materials);
+  }
+  .studio {
+    background-color: var(--studio);
+  }
+  .folio {
+    font-size: 0.85rem;
+    font-variant-caps: all-small-caps;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    opacity: 0.8;
+  }
+  .title {
+    font-size: clamp(1.6rem, 3.4vw, 2.6rem);
+    line-height: 1.04;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+  .large .title {
+    font-size: clamp(2rem, 5vw, 4rem);
+  }
+  .mark {
+    font-family: var(--sans);
+    font-variant-caps: all-small-caps;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    font-size: 1.05rem;
+    opacity: 0.85;
+  }
+</style>

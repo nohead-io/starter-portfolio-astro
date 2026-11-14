@@ -1,0 +1,49 @@
+---
+import Base from "../../layouts/Base.astro"
+import PostRow from "../../components/PostRow.astro"
+import { posts } from "../../lib/content"
+---
+
+<Base
+  title="Journal"
+  description="Notes from Long Section: the stories behind our buildings, how we draw and repair them, and what we learn along the way."
+>
+  <section class="grid intro">
+    <h1 class="display">The Journal</h1>
+    <p>
+      Notes from the studio: the stories behind our buildings, how we draw and repair them, and what we learn
+      along the way.
+    </p>
+  </section>
+  {posts.map((post) => (
+    <PostRow post={post} />
+  ))}
+</Base>
+
+<style>
+  .intro {
+    padding: 96px 0 24px;
+    /* The description's last line sits on the title's baseline. */
+    align-items: last baseline;
+  }
+  h1 {
+    grid-column: 1 / 3;
+    margin: 0;
+    font-size: clamp(2.75rem, 7vw, 5rem);
+    font-weight: 500;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+  }
+  .intro p {
+    grid-column: 3 / 5;
+    margin: 0;
+    font-size: 1.12rem;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+  @media (max-width: 860px) {
+    .intro p {
+      margin-top: 20px;
+    }
+  }
+</style>

@@ -1,0 +1,308 @@
+---
+// A project's gallery as a carousel: a scroll-snap track of images at one
+// height, with previous and next buttons over the
+// bottom right of the images. Swipe, the buttons or the arrow keys (with the
+// track focused) move it; without JavaScript it is still a scrollable row.
+import { Image } from "astro:assets"
+import { WIDTHS, type Photo } from "../lib/content"
+
+interface Props {
+  items: Photo[]
+  label: string
+}
+
+const { items, label } = Astro.props
+---
+
+<section class="gallery" aria-roledescription="carousel" aria-label={label}>
+  <div class="track" tabindex="0" aria-label={`${label}, use the arrow keys to move`}>
+    {items.map((item, i) => (
+      <figure
+        class="slide"
+        role="group"
+        aria-roledescription="slide"
+        aria-label={`${i + 1} of ${items.length}`}
+        style={`--ratio: ${(item.width / item.height).toFixed(4)}`}
+      >
+        <Image
+          src={item.src}
+          width={item.width}
+          height={item.height}
+          alt={item.alt}
+          widths={WIDTHS}
+          sizes={`(max-width: 860px) calc(100vw - 64px), calc(min(64vh, 620px) * ${(item.width / item.height).toFixed(3)})`}
+          loading={i < 2 ? "eager" : "lazy"}
+          fetchpriority={i === 0 ? "high" : undefined}
+        />
+      </figure>
+    ))}
+  </div>
+  {items.length > 1 && (
+    <div class="buttons">
+      <button type="button" data-prev aria-label="Previous image" disabled>
+        <svg viewBox="0 0 10 10" aria-hidden="true">
+          <path d="M6.5 1.5 3 5l3.5 3.5" />
+        </svg>
+      </button>
+      <button type="button" data-next aria-label="Next image">
+        <svg viewBox="0 0 10 10" aria-hidden="true">
+          <path d="M3.5 1.5 7 5 3.5 8.5" />
+        </svg>
+      </button>
+    </div>
+  )}
+</section>
+
+<script>
+  for (const gallery of document.querySelectorAll<HTMLElement>(".gallery")) {
+    const track = gallery.querySelector<HTMLElement>(".track")!
+    const slides = [...gallery.querySelectorAll<HTMLElement>(".slide")]
+    const prev = gallery.querySelector<HTMLButtonElement>("[data-prev]")
+    const next = gallery.querySelector<HTMLButtonElement>("[data-next]")
+
+    // The focus ring's ends: the photos in view, from the leftmost one's left
+    // edge (or the left guide, where one is cut off) to the rightmost one's
+    // right edge (or the right guide), as insets from the gallery's sides.
+    function ring() {
+      const view = track.getBoundingClientRect()
+      let left = view.right
+      let right = view.left
+      for (const slide of slides) {
+        const box = slide.getBoundingClientRect()
+        if (box.width === 0 || box.right <= view.left || box.left >= view.right) continue
+        left = Math.min(left, Math.max(box.left, view.left))
+        right = Math.max(right, Math.min(box.right, view.right))
+      }
+      if (left >= right) return
+      const outer = gallery.getBoundingClientRect()
+      gallery.style.setProperty("--ring-left", `${left - outer.left}px`)
+      gallery.style.setProperty("--ring-right", `${outer.right - right}px`)
+    }
+    let frame = 0
+    track.addEventListener(
+      "scroll",
+      () => {
+        cancelAnimationFrame(frame)
+        frame = requestAnimationFrame(ring)
+      },
+      { passive: true }
+    )
+    const sized = new ResizeObserver(ring)
+    for (const box of [track, ...slides]) sized.observe(box)
+    ring()
+
+    // One photo (or none): nothing to move between.
+    if (!prev || !next || slides.length < 2) continue
+    let index = 0
+
+    // The inset every slide stops at (the track's scroll-padding).
+    const inset = () => parseFloat(getComputedStyle(track).scrollPaddingLeft) || 0
+
+    // An arrow, not a function declaration, so it keeps the check above that
+    // both buttons exist.
+    const show = (i: number) => {
+      index = i
+      prev.disabled = index === 0
+      next.disabled = index === slides.length - 1
+    }
+
+    // The current slide is the one whose left edge is nearest the inset line.
+    function update() {
+      const left = track.getBoundingClientRect().left + inset()
+      let nearest = 0
+      let distance = Infinity
+      slides.forEach((slide, i) => {
+        const d = Math.abs(slide.getBoundingClientRect().left - left)
+        if (d < distance) {
+          distance = d
+          nearest = i
+        }
+      })
+      // At the end once the last photo is wholly in view: scroll-snap can
+      // stop a few pixels short of the track's full width. A photo with no
+      // width yet (before its styles or size arrive) isn't in view.
+      const last = slides.at(-1)!.getBoundingClientRect()
+      const atEnd = last.width > 0 && last.right <= track.getBoundingClientRect().right + 1
+      show(atEnd ? slides.length - 1 : nearest)
+    }
+
+    // Moves the index at once, so quick presses add up, then scrolls.
+    function go(to: number) {
+      const target = Math.max(0, Math.min(to, slides.length - 1))
+      const slide = slides[target]!
+      show(target)
+      track.scrollTo({
+        left:
+          track.scrollLeft +
+          slide.getBoundingClientRect().left -
+          track.getBoundingClientRect().left -
+          inset(),
+        behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      })
+    }
+
+    prev.addEventListener("click", () => go(index - 1))
+    next.addEventListener("click", () => go(index + 1))
+    track.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowRight") {
+        event.preventDefault()
+        go(index + 1)
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault()
+        go(index - 1)
+      }
+    })
+    // Settle the index when a swipe or a button's scroll comes to rest.
+    let settle: number | undefined
+    track.addEventListener(
+      "scroll",
+      () => {
+        clearTimeout(settle)
+        settle = window.setTimeout(update, 80)
+      },
+      { passive: true }
+    )
+    // Again whenever a photo's size changes: on the first load the script
+    // can run before the photos are laid out.
+    const resize = new ResizeObserver(() => update())
+    for (const slide of slides) resize.observe(slide)
+    update()
+  }
+</script>
+
+<style>
+  /* Every image is this tall; the buttons sit on the images' bottom edge.
+     Heights and widths are whole pixels, so every slide stops exactly a
+     gutter in, with nothing of the one before showing at the guide. */
+  .gallery {
+    --slide-h: round(down, min(64vh, 620px), 1px);
+    --edge: 2px;
+    position: relative;
+  }
+  /* Runs guide to guide; empty items at both ends add a gutter (via the gap)
+     before the first photo and after the last, and every photo snaps a gutter
+     in from the left guide. */
+  .track {
+    display: flex;
+    gap: var(--gutter);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--gutter);
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+    /* Room above and below the photos, taken back by the margin, so the
+       track's clip (snapped to whole pixels) never shaves their edges. */
+    padding-block: var(--edge);
+    margin-block: calc(-1 * var(--edge));
+  }
+  .track::-webkit-scrollbar {
+    display: none;
+  }
+  .track::before,
+  .track::after {
+    content: "";
+    flex: none;
+    width: 0;
+  }
+  /* With the track focused, a ring 6px outside the photos in view: from
+     the leftmost one's left edge (or the left guide, where one is cut off)
+     to the rightmost one's right edge (or the right guide). The script sets
+     the two ends; without it, the ring starts a gutter in, as the first
+     photo does. The gallery's box takes in the track's room above and below
+     the photos (its margin passes through), so the top and bottom allow for
+     it. */
+  .track:focus-visible {
+    outline: none;
+  }
+  .gallery:has(.track:focus-visible)::after {
+    content: "";
+    position: absolute;
+    inset: calc(var(--edge) - 6px) calc(var(--ring-right, 0px) - 6px) calc(var(--edge) - 6px)
+      calc(var(--ring-left, var(--gutter)) - 6px);
+    border: 2px solid var(--accent);
+    /* The photos' radius plus the offset, so the ring follows them. */
+    border-radius: 18px;
+    pointer-events: none;
+  }
+  .slide {
+    flex: none;
+    margin: 0;
+    scroll-snap-align: start;
+  }
+  .slide :global(img) {
+    display: block;
+    height: var(--slide-h);
+    width: round(down, var(--slide-h) * var(--ratio), 1px);
+    max-width: calc(100vw - 4 * var(--gutter));
+    object-fit: cover;
+    border-radius: 12px;
+    background: var(--guide);
+  }
+  .buttons {
+    position: absolute;
+    top: calc(var(--edge) + var(--slide-h) - 44px - 16px);
+    right: calc(var(--gutter) + 16px);
+    display: flex;
+    gap: 8px;
+  }
+  button {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    /* Always white with ink, so they read on any photograph. */
+    background: rgb(255 255 255 / 0.92);
+    color: #0d0d0d;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+    cursor: pointer;
+    transition:
+      background-color 0.15s ease-out,
+      opacity 0.15s ease-out;
+  }
+  button:hover:not(:disabled) {
+    background: #ffffff;
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  /* Ink, white, ink: the ring reads over light and dark photographs. */
+  button:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 6px #0d0d0d;
+  }
+  button svg {
+    width: 12px;
+    height: 12px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  /* On a phone each photo fills the track, guide to guide, and snaps flush
+     with the left guide; only the gap separates them. */
+  @media (max-width: 860px) {
+    .gallery {
+      --slide-h: round(down, (100vw - 2 * var(--gutter)) * 0.75, 1px);
+    }
+    .track {
+      scroll-padding-inline: 0;
+    }
+    .track::before,
+    .track::after {
+      display: none;
+    }
+    .slide :global(img) {
+      width: calc(100vw - 2 * var(--gutter));
+      max-width: none;
+    }
+    .buttons {
+      right: 16px;
+    }
+  }
+</style>

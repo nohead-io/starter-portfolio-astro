@@ -1,0 +1,60 @@
+---
+// The homepage: the studio's work, then the latest from the journal.
+import Base from "../layouts/Base.astro"
+import JournalStrip from "../components/JournalStrip.astro"
+import ProjectCards from "../components/ProjectCards.astro"
+import { posts, projects } from "../lib/content"
+---
+
+<Base description="Long Section is an architecture studio in Dublin and Copenhagen. We design buildings and the places around them, and repair old ones.">
+  <section class="grid intro">
+    <h1 class="display">We design buildings, old and new.</h1>
+    <p>
+      Long Section is an architecture studio of seven (and a dog) in Dublin and Copenhagen: new buildings, the
+      places around them, and old ones made to work again.
+    </p>
+  </section>
+
+  <section aria-label="Work">
+    <ProjectCards projects={projects} eager />
+  </section>
+
+  <JournalStrip
+    posts={posts.slice(0, 4)}
+    heading="From the journal"
+    more={{ href: "/journal", label: "All posts" }}
+  />
+</Base>
+
+<style>
+  .intro {
+    padding: 96px 0 72px;
+    align-items: last baseline;
+  }
+  h1 {
+    grid-column: 1 / 4;
+    margin: 0;
+    max-width: 12em;
+    font-size: clamp(2.75rem, 7vw, 5rem);
+    font-weight: 500;
+    line-height: 0.98;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
+  }
+  .intro p {
+    grid-column: 4;
+    margin: 0;
+    font-size: 1.05rem;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+
+  @media (max-width: 860px) {
+    .intro {
+      padding-bottom: 48px;
+    }
+    .intro p {
+      margin-top: 20px;
+    }
+  }
+</style>

@@ -1,0 +1,6 @@
+# Seed content and generated files keep their own shape.
+seed/
+pnpm-lock.yaml
+dist/
+.astro/
+*.md

@@ -1,0 +1,114 @@
+---
+// Projects as cards, two a row over two columns each: the first image, the
+// name and the summary. On the homepage and under a project ("More work").
+import { Image } from "astro:assets"
+import { photosOf, WIDTHS, type Project } from "../lib/content"
+
+interface Props {
+  projects: Project[]
+  /** Load the first images straight away (at the top of a page). */
+  eager?: boolean
+  /** Two a row on a tablet too, as under a project. */
+  pairs?: boolean
+}
+
+const { projects, eager = false, pairs = false } = Astro.props
+---
+
+<div class:list={["grid", "work", { pairs }]}>
+  {projects.map(({ data }, i) => {
+    const [first] = photosOf(data.gallery)
+    return (
+      <a class="project" href={`/work/${data.slug}`}>
+        {first ? (
+          <Image
+            src={first.src}
+            width={first.width}
+            height={first.height}
+            alt=""
+            widths={WIDTHS}
+            sizes={
+              pairs
+                ? "(max-width: 500px) calc(100vw - 64px), calc((min(100vw, 1160px) - 32px) / 2 - 32px)"
+                : "(max-width: 860px) calc(100vw - 64px), calc((min(100vw, 1160px) - 32px) / 2 - 32px)"
+            }
+            loading={eager && i === 0 ? "eager" : "lazy"}
+            fetchpriority={eager && i === 0 ? "high" : undefined}
+          />
+        ) : (
+          // A project without photos yet keeps its place in the grid.
+          <span class="no-photo" />
+        )}
+        <span class="text">
+          <span class="name display">{data.title}</span>
+          <span class="summary">{data.summary}</span>
+        </span>
+      </a>
+    )
+  })}
+</div>
+
+<style>
+  .work {
+    row-gap: 72px;
+  }
+  /* Two projects a row over two columns each, inset from the guides by a
+     gutter, like the journal's cards. */
+  .project {
+    grid-column: span 2;
+    text-decoration: none;
+  }
+  .project :global(img),
+  .no-photo {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: 10px;
+    transition:
+      transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
+      opacity 0.15s ease-out;
+  }
+  .no-photo {
+    display: block;
+    background: var(--guide);
+  }
+  /* Moves only on a real hover, and not under reduced motion. */
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .project:hover :global(img) {
+      transform: translateY(-4px);
+    }
+  }
+  .text {
+    display: grid;
+    gap: 8px;
+    padding-top: 24px;
+  }
+  .name {
+    font-size: clamp(1.4rem, 2.2vw, 1.75rem);
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+  }
+  .project:hover .name {
+    color: var(--accent);
+  }
+  .summary {
+    max-width: 32em;
+    color: var(--muted);
+    font-size: 1.05rem;
+    line-height: 1.6;
+  }
+  @media (max-width: 860px) {
+    .work {
+      row-gap: 56px;
+    }
+  }
+  @media (min-width: 501px) and (max-width: 860px) {
+    .pairs {
+      grid-template-columns: 1fr 1fr;
+    }
+    .pairs > .project {
+      grid-column: auto !important;
+    }
+  }
+</style>

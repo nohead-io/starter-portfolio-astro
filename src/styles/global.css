@@ -1,0 +1,229 @@
+/* Monochrome: ink on white, greys between, and no other colour. The accent
+   is the ink itself, so ticks, links and buttons are black (white in the
+   dark). */
+:root {
+  color-scheme: light;
+  --paper: #ffffff;
+  --ink: #0d0d0d;
+  --muted: #5f5f5f;
+  --faint: #8f8f8f;
+  --guide: #e6e6e6;
+  /* The page's grid lines, quieter than other rules: translucent ink, so
+     they read the same on the paper and on tinted bands. */
+  --grid: rgb(0 0 0 / 0.07);
+  /* Dashes lose half their ink to the gaps, so they get more. */
+  --grid-dash: rgb(0 0 0 / 0.1);
+  --accent: var(--ink);
+  --accent-strong: #333333;
+  --on-accent: #ffffff;
+  --band: #f4f4f4;
+  /* A selected or hovered row on a card, and a card's footer. */
+  --selected: #f6f6f6;
+  /* The outline of a floating panel: translucent, so it stays a fine line
+     over the page and over a photo behind it. */
+  --panel-edge: var(--grid);
+  --card: #ffffff;
+  /* The ring around a photograph: neutral, so it never tints the edge. */
+  --ring: oklch(0 0 0 / 0.06);
+
+  /* The typographic covers, one grey each. */
+  --buildings: #161616;
+  --drawing: #3a3a3a;
+  --materials: #262626;
+  --studio: #4d4d4d;
+
+  /* Headings in --display; long reading in --text; the interface and logo in
+     --sans. All sans-serif. */
+  --display: var(--font-inter-tight);
+  --text: var(--font-source-sans);
+  --sans: var(--font-source-sans);
+  --gutter: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --paper: #0b0b0b;
+    --ink: #f2f2f2;
+    --muted: #a3a3a3;
+    --faint: #767676;
+    --guide: #262626;
+    --grid: rgb(255 255 255 / 0.045);
+    --grid-dash: rgb(255 255 255 / 0.065);
+    --accent-strong: #d4d4d4;
+    --on-accent: #0b0b0b;
+    --band: #141414;
+    --selected: #1f1f1f;
+    --panel-edge: oklch(1 0 0 / 0.1);
+    --card: #161616;
+    --ring: oklch(1 0 0 / 0.06);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+html {
+  /* A full-bleed band is 100vw wide, which includes a classic scrollbar. */
+  overflow-x: clip;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+a {
+  color: inherit;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* The page: a four-column grid whose guides run the full height, dashed
+   inside and solid at the edges. */
+.frame {
+  position: relative;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+.guides {
+  position: absolute;
+  inset: 0 var(--gutter);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.guides span {
+  border-left: 1px dashed var(--grid-dash);
+}
+
+.guides span:first-child {
+  border-left: 1px solid var(--grid);
+}
+
+.guides span:last-child {
+  border-right: 1px solid var(--grid);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.grid > * {
+  padding: 0 var(--gutter);
+  min-width: 0;
+}
+
+/* A label with the accent tick centred on its column's guide line. A grid
+   column's padding box starts at the guide; `.tick-inset` is for a tick
+   nested inside a padded column. */
+.tick {
+  position: relative;
+  font-size: 0.95rem;
+  color: var(--muted);
+  --tick-offset: 0px;
+}
+
+.tick-inset {
+  --tick-offset: var(--gutter);
+}
+
+.tick::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * var(--tick-offset) - 0.5px);
+  top: 0.15em;
+  bottom: 0.15em;
+  width: 2px;
+  background: var(--accent);
+}
+
+a.category:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+.category {
+  color: var(--accent);
+  font-weight: 700;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.06em;
+  font-size: 1.1rem;
+  text-decoration: none;
+}
+
+.text {
+  font-family: var(--text);
+}
+
+.display {
+  font-family: var(--display);
+  /* Headings are tracked tighter, and browsers drop ligatures from text with
+     letter-spacing; ask for them explicitly. */
+  font-feature-settings: "liga" 1;
+}
+
+/* Photographs are black and white, with a faint ring so a pale edge still
+   meets the paper. The filter never changes: animating one makes Safari
+   redraw the image every frame. A linked photograph fades a little on hover
+   or focus instead. */
+main img,
+.results img {
+  filter: grayscale(1) contrast(1.04);
+  outline: 1px solid var(--ring);
+  outline-offset: -1px;
+}
+main a img {
+  transition: opacity 0.15s ease-out;
+}
+@media (hover: hover) {
+  main a:hover img {
+    opacity: 0.85;
+  }
+}
+main a:focus-visible img {
+  opacity: 0.85;
+}
+
+/* Two halves on phones: the solid edges and one dashed line in the middle,
+   which two-up content (a project's facts) hangs on. */
+@media (max-width: 860px) {
+  .guides {
+    grid-template-columns: 1fr 1fr;
+  }
+  .guides span:nth-child(n + 3) {
+    display: none;
+  }
+  .guides span:nth-child(2) {
+    border-right: 1px solid var(--grid);
+  }
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .grid > * {
+    grid-column: 1 / -1 !important;
+  }
+}

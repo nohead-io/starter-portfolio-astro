@@ -1,0 +1,113 @@
+---
+import { Image } from "astro:assets"
+import Base from "../../layouts/Base.astro"
+import PostRow from "../../components/PostRow.astro"
+import { byAuthor, people, photoOf, posts, type Person } from "../../lib/content"
+
+export function getStaticPaths() {
+  return people.map((person) => ({ params: { key: person.data.slug }, props: { person } }))
+}
+
+const { person } = Astro.props as { person: Person }
+const { name, role, studio, bio, website } = person.data
+const portrait = photoOf(person.data.portrait)
+const theirs = posts.filter((post) => byAuthor(post, person))
+---
+
+<Base title={name} description={bio}>
+  <section class="grid head">
+    <div class="portrait">
+      {portrait && (
+        <Image src={portrait.src} alt="" width={250} height={250} densities={[1, 2]} fit="cover" />
+      )}
+    </div>
+    <div class="text">
+      <p class="tick tick-inset role">
+        {role} · {studio}
+      </p>
+      <h1 class="display">{name}</h1>
+      <p class="bio text">{bio}</p>
+      {website && (
+        <a class="site" href={website}>
+          {website.replace(/^https:\/\//, "")}
+        </a>
+      )}
+    </div>
+  </section>
+  {theirs.map((post) => (
+    <PostRow post={post} />
+  ))}
+</Base>
+
+<style>
+  .head {
+    padding: 96px 0 24px;
+    align-items: end;
+  }
+  /* Inset between the guides, like the team on the About page. */
+  .portrait {
+    grid-column: 1;
+  }
+  .portrait :global(img) {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 10px;
+  }
+  .text {
+    grid-column: 2 / 5;
+  }
+  .role {
+    margin: 0 0 12px;
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(2.4rem, 5vw, 3.9rem);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.025em;
+  }
+  .bio {
+    max-width: 32em;
+    font-size: 1.3rem;
+    line-height: 1.5;
+    color: var(--muted);
+    margin: 20px 0 12px;
+  }
+  .site {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  /* Below desktop the header sits on the two halves, and the portrait fills
+     the left one, as the team's portraits do on the About page. */
+  @media (max-width: 860px) {
+    .head {
+      grid-template-columns: 1fr 1fr;
+    }
+    .head > .portrait {
+      grid-column: 1 !important;
+    }
+  }
+  /* On a phone the text runs across both halves, under the portrait. */
+  @media (max-width: 500px) {
+    .head > .portrait {
+      margin-bottom: 24px;
+    }
+    .head > .text {
+      grid-column: 1 / -1 !important;
+    }
+  }
+  /* On a tablet the text takes the right half, level with the portrait's
+     bottom edge as on desktop. The portrait holds to the top, so a bio
+     longer than it is tall runs on below it rather than pushing it down. */
+  @media (min-width: 501px) and (max-width: 860px) {
+    .head > .portrait {
+      align-self: start;
+    }
+    .head > .text {
+      grid-column: 2 !important;
+      align-self: end;
+    }
+  }
+</style>

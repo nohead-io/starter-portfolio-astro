@@ -1,0 +1,633 @@
+---
+// Search: a button in the header that opens a modal search box (also on
+// ⌘K / Ctrl+K and "/"), listing posts as links with their cover, a snippet
+// and the matched words marked. Matching runs on /search.json, loaded the
+// first time the box opens; with Nohead the box asks the project's search
+// instead (a public search token, which also returns highlighted snippets).
+---
+
+<button type="button" class="search-open" aria-haspopup="dialog" aria-controls="search-dialog">
+  <svg viewBox="0 0 20 20" aria-hidden="true">
+    <circle cx="8.5" cy="8.5" r="5.5"></circle>
+    <path d="m13 13 4 4"></path>
+  </svg>
+  <span class="visually-hidden">Search</span>
+</button>
+
+<dialog id="search-dialog" class="search-dialog" aria-label="Search the journal">
+  <div class="field">
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <circle cx="8.5" cy="8.5" r="5.5"></circle>
+      <path d="m13 13 4 4"></path>
+    </svg>
+    <input
+      type="text"
+      role="combobox"
+      aria-expanded="true"
+      aria-controls="search-results"
+      aria-autocomplete="list"
+      placeholder="Search the journal"
+      aria-label="Search the journal"
+      autocomplete="off"
+      spellcheck="false"
+      enterkeyhint="search"
+    />
+    <button type="button" class="close" aria-label="Esc, close search">
+      esc
+    </button>
+  </div>
+  <div class="body">
+    <p class="heading" id="search-heading">
+      Latest
+    </p>
+    <div id="search-results" class="results" role="listbox" aria-labelledby="search-heading"></div>
+    <p class="empty" hidden></p>
+  </div>
+  <p class="visually-hidden" aria-live="polite" data-status></p>
+</dialog>
+
+<script>
+  interface Entry {
+    slug: string
+    title: string
+    summary: string
+    category: { name: string; slug: string } | null
+    meta: string
+    thumb: string | null
+    text: string
+  }
+
+  setUp(document.querySelector<HTMLDialogElement>("#search-dialog")!)
+
+  function setUp(dialog: HTMLDialogElement) {
+    const opener = document.querySelector<HTMLButtonElement>(".search-open")!
+    const input = dialog.querySelector<HTMLInputElement>("input")!
+    const list = dialog.querySelector<HTMLElement>(".results")!
+    const heading = dialog.querySelector<HTMLElement>(".heading")!
+    const empty = dialog.querySelector<HTMLElement>(".empty")!
+    const status = dialog.querySelector<HTMLElement>("[data-status]")!
+    let index: Entry[] = []
+    let loaded = false
+    let failed = false
+    let loading: Promise<void> | undefined
+    /** Loads the index once, on first open; a failed load is tried again next time. */
+    function load() {
+      loading ??= fetch("/search.json")
+        .then((response) => {
+          if (!response.ok) throw new Error(`search.json: ${response.status}`)
+          return response.json()
+        })
+        .then((entries: Entry[]) => {
+          index = entries
+          loaded = true
+          failed = false
+        })
+        .catch(() => {
+          failed = true
+          loading = undefined
+        })
+      return loading
+    }
+
+    /** Shorter queries show the latest posts instead. */
+    const MIN_QUERY = 2
+    /** Wait for a pause in typing; each search will be a request to Nohead. */
+    const DEBOUNCE_MS = 150
+
+    let terms: string[] = []
+    let active = 0
+    let timer: number | undefined
+
+    function search(query: string): Entry[] {
+      terms = query.toLowerCase().split(/\s+/).filter(Boolean)
+      if (terms.length === 0) return index.slice(0, 5)
+      return index
+        .filter((post) => terms.every((term) => post.text.includes(term)))
+        .map((post) => {
+          const title = post.title.toLowerCase()
+          return { post, score: terms.filter((term) => title.includes(term)).length }
+        })
+        .sort((a, b) => b.score - a.score)
+        .map(({ post }) => post)
+    }
+
+    /** Text with the search terms wrapped in <mark>, built as nodes. */
+    function marked(text: string): Node[] {
+      if (terms.length === 0) return [document.createTextNode(text)]
+      const pattern = new RegExp(
+        `(${terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`,
+        "gi"
+      )
+      return text.split(pattern).map((part, i) => {
+        if (i % 2 === 0) return document.createTextNode(part)
+        const mark = document.createElement("mark")
+        mark.textContent = part
+        return mark
+      })
+    }
+
+    /** The summary from a little before its first match, so the match shows. */
+    function snippet(summary: string): string {
+      const lower = summary.toLowerCase()
+      const at = Math.min(...terms.map((term) => lower.indexOf(term)).filter((i) => i >= 0))
+      if (!Number.isFinite(at) || at < 40) return summary
+      const start = summary.lastIndexOf(" ", at - 24)
+      return `…${summary.slice(start + 1)}`
+    }
+
+    function option(post: Entry, i: number): HTMLAnchorElement {
+      const link = document.createElement("a")
+      link.href = `/posts/${post.slug}`
+      link.id = `search-option-${i}`
+      link.setAttribute("role", "option")
+      link.tabIndex = -1
+
+      const thumb = document.createElement("span")
+      thumb.className = `thumb ${post.category?.slug ?? ""}`
+      if (post.thumb) {
+        const img = document.createElement("img")
+        img.src = post.thumb
+        img.alt = ""
+        img.width = 72
+        img.height = 54
+        thumb.append(img)
+      } else {
+        thumb.textContent = post.category?.name.charAt(0) ?? ""
+      }
+
+      const text = document.createElement("span")
+      text.className = "text"
+      const meta = document.createElement("span")
+      meta.className = "meta"
+      meta.textContent = post.meta
+      const title = document.createElement("span")
+      title.className = "title"
+      title.append(...marked(post.title))
+      const summary = document.createElement("span")
+      summary.className = "summary"
+      summary.append(...marked(snippet(post.summary)))
+      text.append(meta, title, summary)
+
+      const enter = document.createElement("kbd")
+      enter.className = "enter"
+      enter.setAttribute("aria-hidden", "true")
+      enter.textContent = "↵"
+
+      link.append(thumb, text, enter)
+      link.addEventListener("mousemove", (event) => hover(event, i))
+      return link
+    }
+
+    // The pointer picks a result only when it moves: the list scrolling under
+    // a resting pointer (as the arrow keys scroll it) fires mousemove too, and
+    // would take the selection back from the keys.
+    let pointer = ""
+    function hover(event: MouseEvent, i: number) {
+      const at = `${event.screenX},${event.screenY}`
+      if (at === pointer || (event.movementX === 0 && event.movementY === 0)) return
+      pointer = at
+      select(i, false)
+    }
+
+    function select(i: number, scroll = true) {
+      const options = [...list.querySelectorAll<HTMLElement>("[role=option]")]
+      if (options.length === 0) {
+        input.removeAttribute("aria-activedescendant")
+        return
+      }
+      active = (i + options.length) % options.length
+      options.forEach((el, n) => el.setAttribute("aria-selected", String(n === active)))
+      input.setAttribute("aria-activedescendant", options[active]!.id)
+      if (scroll) options[active]!.scrollIntoView({ block: "nearest" })
+    }
+
+    function render() {
+      clearTimeout(timer)
+      timer = undefined
+      const typed = input.value.trim()
+      const query = typed.length >= MIN_QUERY ? typed : ""
+      const results = search(query)
+      list.replaceChildren(...results.map(option))
+      heading.textContent = query ? `${results.length} ${results.length === 1 ? "post" : "posts"}` : "Latest"
+      heading.hidden = results.length === 0
+      // While the index loads, show nothing rather than "nothing matches".
+      empty.hidden = results.length > 0 || (!loaded && !failed)
+      if (failed) empty.replaceChildren("Search didn't load. Check your connection and open it again.")
+      else
+        empty.replaceChildren(
+          "Nothing matches “",
+          Object.assign(document.createElement("strong"), { textContent: query }),
+          "”. Try a building, a person or a place."
+        )
+      status.textContent = failed
+        ? "Search didn't load."
+        : query
+          ? results.length === 0
+            ? `No posts match ${query}.`
+            : `${results.length} ${results.length === 1 ? "post" : "posts"} found.`
+          : ""
+      select(0)
+    }
+
+    // While the panel is open the page stays put: pinned where it was
+    // scrolled to, which iPhones respect even with the keyboard up (the
+    // stylesheet's overflow: hidden alone isn't enough there), and put back
+    // when it closes.
+    let pinnedAt = 0
+    function pin() {
+      pinnedAt = window.scrollY
+      Object.assign(document.body.style, { position: "fixed", top: `-${pinnedAt}px`, left: "0", right: "0" })
+    }
+    function unpin() {
+      for (const property of ["position", "top", "left", "right"])
+        document.body.style.removeProperty(property)
+      window.scrollTo({ top: pinnedAt, behavior: "instant" })
+    }
+    dialog.addEventListener("close", unpin)
+
+    function open() {
+      if (dialog.open) return
+      input.value = ""
+      render()
+      pin()
+      if (window.visualViewport) fit()
+      dialog.showModal()
+      input.focus()
+      // The first time, the results fill in once the index arrives.
+      if (!loaded) load().then(render)
+    }
+
+    opener.addEventListener("click", open)
+    dialog.querySelector(".close")!.addEventListener("click", () => dialog.close())
+    input.addEventListener("input", () => {
+      clearTimeout(timer)
+      timer = window.setTimeout(render, DEBOUNCE_MS)
+    })
+
+    input.addEventListener("keydown", (event) => {
+      // On a touch screen the keyboard's Search key only puts the keyboard
+      // away, so the results show in full; a tap opens one.
+      if (
+        event.key === "Enter" &&
+        !event.isComposing &&
+        matchMedia("(hover: none) and (pointer: coarse)").matches
+      ) {
+        event.preventDefault()
+        input.blur()
+        return
+      }
+      // Keys act on the results for what is typed now, not before the pause.
+      if (timer !== undefined && ["ArrowDown", "ArrowUp", "Enter"].includes(event.key)) render()
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault()
+        select(active + (event.key === "ArrowDown" ? 1 : -1))
+      } else if (event.key === "Enter") {
+        const chosen = list.querySelector<HTMLAnchorElement>(`#search-option-${active}`)
+        if (chosen) {
+          event.preventDefault()
+          if (event.metaKey || event.ctrlKey) window.open(chosen.href, "_blank")
+          else chosen.click()
+        }
+      }
+    })
+
+    // The panel fits the part of the screen the on-screen keyboard leaves
+    // (the visual viewport), so every result can be scrolled to with the
+    // keyboard up.
+    const fit = () => dialog.style.setProperty("--visible-height", `${window.visualViewport!.height}px`)
+    window.visualViewport?.addEventListener("resize", () => {
+      if (dialog.open) fit()
+    })
+
+    // While the on-screen keyboard is up, iOS pans the screen for a drag
+    // instead of scrolling the results, so a finger on the results puts the
+    // keyboard away first. The panel stays where it is, so a tap still opens
+    // the result under it.
+    const scroller = dialog.querySelector<HTMLElement>(".body")!
+    let lastY = 0
+    document.addEventListener(
+      "touchstart",
+      (event) => {
+        lastY = event.touches[0]?.clientY ?? 0
+        if (dialog.open && event.target instanceof Node && scroller.contains(event.target)) input.blur()
+      },
+      { passive: true }
+    )
+    // A drag only goes ahead where it scrolls the results; anywhere else in
+    // the open panel or on the page behind, it's held.
+    document.addEventListener(
+      "touchmove",
+      (event) => {
+        if (!dialog.open) return
+        const y = event.touches[0]?.clientY ?? lastY
+        const up = y > lastY
+        lastY = y
+        const scrolls =
+          event.target instanceof Node &&
+          scroller.contains(event.target) &&
+          (up
+            ? scroller.scrollTop > 0
+            : scroller.scrollTop + scroller.clientHeight < scroller.scrollHeight - 1)
+        if (!scrolls) event.preventDefault()
+      },
+      { passive: false }
+    )
+
+    // A click on the backdrop (outside the panel) closes it.
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) dialog.close()
+    })
+
+    document.addEventListener("keydown", (event) => {
+      const target = event.target
+      const typing = target instanceof Element && target.closest("input, textarea, [contenteditable]")
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault()
+        if (dialog.open) dialog.close()
+        else open()
+      } else if (event.key === "/" && !typing && !dialog.open) {
+        event.preventDefault()
+        open()
+      }
+    })
+  }
+</script>
+
+<style>
+  .search-open {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    margin: -8px -8px -8px 0;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    transition:
+      color 0.15s ease-out,
+      background-color 0.15s ease-out;
+  }
+  .search-open:hover {
+    color: var(--ink);
+    background: var(--band);
+  }
+  .search-open:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  svg {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+  }
+
+  /* The panel */
+  .search-dialog {
+    width: min(620px, calc(100% - 32px));
+    max-height: min(600px, calc(var(--visible-height, 100dvh) - 120px));
+    margin: 12vh auto auto;
+    padding: 0;
+    border: 0;
+    border-radius: 12px;
+    background: var(--card);
+    color: var(--ink);
+    box-shadow:
+      0 0 0 1px var(--panel-edge),
+      0 40px 80px -20px rgb(0 0 0 / 0.35),
+      0 16px 32px -16px rgb(0 0 0 / 0.25);
+    overflow: hidden;
+    flex-direction: column;
+  }
+  .search-dialog[open] {
+    display: flex;
+    animation: rise 0.2s cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+  .search-dialog::backdrop {
+    background: rgb(0 0 0 / 0.3);
+    backdrop-filter: blur(6px) saturate(0.9);
+    animation: fade 0.2s ease-out;
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.985);
+    }
+  }
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .search-dialog[open],
+    .search-dialog::backdrop {
+      animation: none;
+    }
+  }
+
+  /* The box */
+  .field {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--guide);
+    color: var(--faint);
+  }
+  .field svg {
+    width: 20px;
+    height: 20px;
+  }
+  .field input {
+    flex: 1;
+    min-width: 0;
+    padding: 22px 0;
+    border: 0;
+    background: none;
+    color: var(--ink);
+    font: inherit;
+    font-size: 1.25rem;
+    line-height: 1.2;
+    caret-color: var(--accent);
+  }
+  .field input:focus {
+    outline: none;
+  }
+  .field input::placeholder {
+    color: var(--muted);
+  }
+  .close {
+    padding: 3px 8px;
+    border: 1px solid var(--guide);
+    border-radius: 6px;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .close:hover {
+    color: var(--ink);
+  }
+
+  /* While the panel is open the page stays put, so a drag scrolls the
+     results, not the page behind (iOS hands it to the page while the
+     keyboard is up). The scrollbar's room stays, so nothing shifts. */
+  :global(html:has(.search-dialog[open])) {
+    overflow: hidden;
+    scrollbar-gutter: stable;
+  }
+
+  /* Results: the part of the panel that shrinks and scrolls. */
+  .body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 6px 8px 8px;
+  }
+  .heading {
+    margin: 0;
+    padding: 10px 12px 6px;
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-variant-caps: all-small-caps;
+    letter-spacing: 0.08em;
+  }
+  .results :global([role="option"]) {
+    display: grid;
+    grid-template-columns: 72px 1fr auto;
+    gap: 16px;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 8px;
+    text-decoration: none;
+    scroll-margin: 8px;
+  }
+  .results :global([aria-selected="true"]) {
+    background: var(--selected);
+  }
+  .results :global(.thumb) {
+    display: grid;
+    place-items: center;
+    width: 72px;
+    height: 54px;
+    border-radius: 6px;
+    overflow: hidden;
+    color: #ffffff;
+    font-family: var(--display);
+    font-size: 1.4rem;
+    font-weight: 600;
+    background: var(--guide);
+  }
+  .results :global(.thumb.work) {
+    background: var(--work);
+  }
+  .results :global(.thumb.design) {
+    background: var(--design);
+  }
+  .results :global(.thumb.development) {
+    background: var(--development);
+  }
+  .results :global(.thumb.studio) {
+    background: var(--studio);
+  }
+  .results :global(.thumb img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: inherit;
+  }
+  .results :global(.text) {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+  .results :global(.meta) {
+    color: var(--muted);
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .results :global(.title) {
+    font-family: var(--display);
+    font-size: 1.08rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--ink);
+  }
+  .results :global(.summary) {
+    color: var(--muted);
+    font-size: 0.92rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .results :global(mark) {
+    background: none;
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: var(--accent);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.18em;
+  }
+  .results :global(.enter) {
+    visibility: hidden;
+    padding: 2px 7px;
+    border: 1px solid var(--guide);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.85rem;
+  }
+  .results :global([aria-selected="true"] .enter) {
+    visibility: visible;
+  }
+  .empty {
+    margin: 0;
+    padding: 36px 12px 40px;
+    color: var(--muted);
+    text-align: center;
+  }
+  .empty :global(strong) {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  @media (max-width: 860px) {
+    .search-dialog {
+      margin-top: 16px;
+      max-height: min(600px, calc(var(--visible-height, 100dvh) - 32px));
+    }
+    .results :global([role="option"]) {
+      grid-template-columns: 56px 1fr;
+      gap: 12px;
+    }
+    .results :global(.thumb) {
+      width: 56px;
+      height: 42px;
+    }
+    .results :global(.enter) {
+      display: none;
+    }
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+</style>
